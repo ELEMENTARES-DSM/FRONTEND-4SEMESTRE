@@ -1,0 +1,33 @@
+name: CI Elementares
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+  validacao-codigo:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Fazer o Checkout do codigo
+      uses: actions/checkout@v4
+
+    - name: Configurar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24.x'
+        cache: 'npm'
+
+    - name: Instalar dependencias
+      run: npm ci
+
+    - name: Rodar Linter
+      run: npm run lint --if-present
+
+    - name: Rodar Testes
+      run: npm test --if-present
+
+    - name: Fazer o Build
+      run: npm run build
