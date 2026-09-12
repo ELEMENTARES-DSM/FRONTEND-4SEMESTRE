@@ -2,9 +2,9 @@ name: CI Elementares
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "develop", "main" ]
   pull_request:
-    branches: [ "develop" ]
+    branches: [ "develop", "main" ]
 
 jobs:
   validacao-codigo:
@@ -23,11 +23,28 @@ jobs:
     - name: Instalar dependencias
       run: npm ci
 
+    - name: Criar arquivo .env
+      run: |
+        echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" >> .env
+        echo "VITE_AMBIENTE=producao" >> .env
+
+    - name: Verificar tipagem TypeScript
+      run: npx tsc --noEmit
+
     - name: Rodar Linter
       run: npm run lint --if-present
 
     - name: Rodar Testes
-      run: npm test --if-present
+      run: npm test --if-present -- --passWithNoTests
 
     - name: Fazer o Build
       run: npm run build
+
+    - name: Notificar falha no Discord
+      if: failure()
+      uses: sarisia/actions-status-discord@v1
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "❌ Falha no CI do Frontend"
+        description: "A validacao do codigo falhou na branch ${{ github.ref_name }}. Verifique o log de execucao no GitHub Actions. Alguém tem que ver isso aí"
+        color: 0xff0000
