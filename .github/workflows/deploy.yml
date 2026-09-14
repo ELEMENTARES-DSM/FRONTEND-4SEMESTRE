@@ -1,37 +1,48 @@
-name: Deploy
+name: Deploy Frontend to EC2
 
-# ativa deploy automatico
-# on:
-#   push:
-#     branches: [main]
-
-# deploy manual
 on:
+  push:
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          node-version: 20
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Install deps
-        run: npm ci
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build
-        run: npm run build
-
-      - name: Deploy via rsync
-        uses: easingthemes/ssh-deploy@main
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.VM_HOST }}
-          REMOTE_USER: ${{ secrets.VM_USER }}
-          SOURCE: "dist/"
-          TARGET: "/var/www/elementares-frontend/"
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USER }}/frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger redeploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DOCKERHUB_USER
+          script: |
+            cd /home/ubuntu/app
+            export DOCKERHUB_USER=${{ secrets.DOCKERHUB_USER }}
+            docker compose -f docker-compose.prod.yml pull frontend
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans frontend
