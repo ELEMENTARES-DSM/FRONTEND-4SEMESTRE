@@ -31,3 +31,23 @@ jobs:
 
     - name: Fazer o Build
       run: npm run build
+  sonarcloud:
+    name: Analise SonarCloud
+    runs-on: ubuntu-latest
+    needs: validacao-codigo
+    steps:
+      - name: Fazer o Checkout do codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analisar com SonarCloud
+        uses: SonarSource/sonarcloud-github-action@v3.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.organization=elementares-dsm
+            -Dsonar.projectKey=ELEMENTARES-DSM_FRONTEND-4SEMESTRE
