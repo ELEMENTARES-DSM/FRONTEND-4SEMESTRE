@@ -1,10 +1,12 @@
 import { Route, Routes } from 'react-router-dom'
 import DevLib from '../pages/DevLib'
+import { Stations } from '../pages/Stations'
 
 export function AppRoutes() {
   return (
     <Routes>
-      {/* <Route path="/" element={<ComponentShowcase />} /> */}
+      <Route path="/" element={<Stations />} />
+      <Route path="/stations" element={<Stations />} />
       <Route path="/devlib" element={<DevLib />} />
     </Routes>
   )
