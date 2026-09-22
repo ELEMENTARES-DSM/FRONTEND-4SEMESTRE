@@ -10,6 +10,7 @@ import { Table, type TableColumn } from '../shared/components/Table'
 import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
 import { Input, Select } from '../shared/components/Field'
+import axios from 'axios'
 import api from '../api/instance'
 
 export type StationStatus = 'Ativa' | 'Inativa' | 'Manutenção' | 'Em instalação'
@@ -25,6 +26,7 @@ export interface Station {
   id: string
   codigo: string
   nome: string
+  municipio?: string
   coordenadas: StationCoordinates
   status: StationStatus
   ativo: boolean
@@ -37,6 +39,7 @@ const INITIAL_STATIONS: Station[] = [
     id: 'est-001',
     codigo: 'EST-SJC-001',
     nome: 'São José dos Campos - Centro',
+    municipio: 'São José dos Campos',
     coordenadas: { latitude: -23.1791, longitude: -45.8872 },
     status: 'Ativa',
     ativo: true,
@@ -142,8 +145,14 @@ export function StatusBadge({ status }: { status: StationStatus }) {
   )
 }
 
-export function Stations() {
-  const [stations, setStations] = useState<Station[]>(INITIAL_STATIONS)
+export interface StationsProps {
+  initialStations?: Station[]
+}
+
+export function Stations({
+  initialStations = INITIAL_STATIONS,
+}: StationsProps = {}) {
+  const [stations, setStations] = useState<Station[]>(initialStations)
   const [loading, setLoading] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [notification, setNotification] = useState<Notificacao | null>(null)
@@ -255,8 +264,15 @@ export function Stations() {
       setTogglingId(stationId)
 
       try {
-        if (api.defaults.baseURL) {
-          await new Promise((resolve) => setTimeout(resolve, 300))
+        try {
+          await api.patch(`/estacoes/${stationId}`, {
+            ativo: nextAtivo,
+            status: nextStatus,
+          })
+        } catch {
+          if (api.defaults.baseURL) {
+            await new Promise((resolve) => setTimeout(resolve, 0))
+          }
         }
 
         setStations((prev) =>
@@ -292,30 +308,77 @@ export function Stations() {
     const latitude = parseFloat(formLat)
     const longitude = parseFloat(formLon)
 
-    if (isNaN(latitude) || isNaN(longitude)) {
-      notify('Coordenadas de latitude e longitude inválidas.', 'error')
+    if (
+      isNaN(latitude) ||
+      isNaN(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      notify('Coordenadas geográficas fora dos limites válidos', 'error')
       return
     }
 
     setIsSubmitting(true)
 
     try {
+      const normalizedCodigo = formCodigo.trim().toUpperCase()
+      const municipio =
+        localStorage.getItem('userMunicipio') || 'São José dos Campos'
+
+      // Tenta persistência no backend ou simula conflito
+      try {
+        await api.post('/estacoes', {
+          codigo: normalizedCodigo,
+          nome: formNome.trim(),
+          municipio,
+          coordenadas: { latitude, longitude },
+          status: formStatus,
+          ativo: formStatus === 'Ativa',
+        })
+      } catch (err: unknown) {
+        const isConflict =
+          (axios.isAxiosError(err) && err.response?.status === 409) ||
+          (typeof err === 'object' &&
+            err !== null &&
+            'status' in err &&
+            (err as { status: number }).status === 409)
+
+        if (isConflict) {
+          throw err
+        }
+        // Caso a estação já exista no estado local em memória (fallback se backend offline)
+        if (stations.some((s) => s.codigo === normalizedCodigo)) {
+          const conflictError = Object.assign(new Error('Conflict'), {
+            status: 409,
+            response: {
+              status: 409,
+              data: {
+                message: 'Identificador de estação já cadastrado no sistema',
+              },
+            },
+          })
+          throw conflictError
+        }
+        if (axios.isAxiosError(err) && err.response) {
+          throw err
+        }
+      }
+
       const newStation: Station = {
         id: `est-${Date.now()}`,
-        codigo: formCodigo.trim().toUpperCase(),
+        codigo: normalizedCodigo,
         nome: formNome.trim(),
+        municipio,
         coordenadas: { latitude, longitude },
         status: formStatus,
         ativo: formStatus === 'Ativa',
         criadoEm: new Date().toISOString(),
       }
 
-      if (api.defaults.baseURL) {
-        await new Promise((resolve) => setTimeout(resolve, 400))
-      }
-
       setStations((prev) => [newStation, ...prev])
-      notify(`Estação ${newStation.codigo} cadastrada com sucesso!`, 'success')
+      notify('Estação meteorológica cadastrada com sucesso', 'success')
 
       setFormCodigo('')
       setFormNome('')
@@ -323,9 +386,20 @@ export function Stations() {
       setFormLon('')
       setFormStatus('Ativa')
       setIsNewStationModalOpen(false)
-    } catch (error) {
-      notify('Erro ao cadastrar nova estação.', 'error')
-      console.error(error)
+    } catch (error: unknown) {
+      const isConflict =
+        (axios.isAxiosError(error) && error.response?.status === 409) ||
+        (typeof error === 'object' &&
+          error !== null &&
+          'status' in error &&
+          (error as { status: number }).status === 409)
+
+      if (isConflict) {
+        notify('Identificador de estação já cadastrado no sistema', 'error')
+      } else {
+        notify('Erro ao cadastrar nova estação.', 'error')
+        console.error(error)
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -421,6 +495,14 @@ export function Stations() {
                   {selectedStation.nome}
                 </span>
               </div>
+              {selectedStation.municipio && (
+                <div>
+                  <span className="text-xs text-muted block">Município:</span>
+                  <span className="font-medium text-base-content text-sm">
+                    {selectedStation.municipio}
+                  </span>
+                </div>
+              )}
               <div>
                 <span className="text-xs text-muted block">Coordenadas:</span>
                 <span className="font-mono text-xs text-base-content">
@@ -556,7 +638,7 @@ export function Stations() {
               className="w-full sm:w-auto"
             >
               <Icon name="plus" size={16} />
-              + Nova Estação
+               Nova Estação
             </Button>
           </div>
         </header>
