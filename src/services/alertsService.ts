@@ -1,22 +1,6 @@
 import instance from "../api/instance";
+import type { RegraAlerta } from "../pages/Alerts";
 import { MOCK_REGRAS_ALERTA } from "./mocks/alertsMock";
-
-export type NivelSeveridade = "Informativo" | "Alerta" | "Critico" | "Atençao";
-
-export interface RegraAlerta {
-  id: string;
-  nomeRegra?: string;
-  estacao: string;
-  sensor_id: string;
-  sensorNome: string;
-  unidadeMedida?: string;
-  operador: ">" | "<" | ">=" | "<=" | "=";
-  valor_limite: number;
-  nivel_severidade: NivelSeveridade;
-  canal_notificacao?: "Painel" | "Email" | "SMS";
-  esta_ativa: boolean;
-  criado_em?: string;
-}
 
 export const alertsService = {
   getRegras: async (): Promise<RegraAlerta[]> => {
@@ -37,6 +21,18 @@ export const alertsService = {
       await instance.patch(`/regras-alerta/${id}/status`, { esta_ativa });
     } catch (error) {
       console.warn("Backend indisponível ao atualizar status:", error);
+    }
+  },
+
+  createRegra: async (
+    regra: Omit<RegraAlerta, "id">,
+  ): Promise<RegraAlerta> => {
+    try {
+      const response = await instance.post<RegraAlerta>("/regras-alerta", regra);
+      return response.data;
+    } catch (error) {
+      console.warn("Backend indisponível ao criar regra:", error);
+      throw error;
     }
   },
 };

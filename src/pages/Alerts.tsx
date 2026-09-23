@@ -6,21 +6,23 @@ import { Toggle } from "../shared/components/Toggle";
 import { Modal } from "../shared/components/Modal";
 import { Icon } from "../shared/components/Icon";
 import { alertsService } from "../services/alertsService";
+import { Toast, type Notificacao } from "../shared/components/Toast";
+import { Pagination } from "../shared/components/Pagination";
 
-export type NivelSeveridade = "Informativo" | "Alerta" | "Critico" | "Atençao";
+export type NivelSeveridade = "ATENCAO" | "ALERTA" | "CRITICO";
 
 export interface RegraAlerta {
   id: string;
+  sensor_id: string;
   nomeRegra?: string;
   estacao: string;
-  sensor_id: string;
   sensorNome: string;
   unidadeMedida?: string;
   operador: ">" | "<" | ">=" | "<=" | "=";
   valor_limite: number;
   nivel_severidade: NivelSeveridade;
   canal_notificacao?: "Painel" | "Email" | "SMS";
-  esta_ativa: boolean;
+  esta_ativo: boolean;
   criado_em?: string;
 }
 
@@ -30,18 +32,34 @@ export function Alerts() {
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSeveridade, setSelectedSeveridade] = useState<string>("");
+  const [selectedSeveridade, setSelectedSeveridade] = useState<string[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [notification, setNotification] = useState<Notificacao | null>(null);
+
+  const regrasAtivasCount = useMemo(
+    () => regras.filter((r) => r.esta_ativo).length,
+    [regras],
+  );
 
   useEffect(() => {
     let isMounted = true;
 
     const loadData = async () => {
-      const data = await alertsService.getRegras();
-      if (isMounted) {
-        setRegras(data);
-        setLoading(false);
+      try {
+        setLoading(true);
+        const data = await alertsService.getRegras();
+        if (isMounted) {
+          setRegras(data);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar regras:", error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -52,6 +70,11 @@ export function Alerts() {
     };
   }, []);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [searchTerm, selectedSeveridade]);
+
   const handleToggleStatus = async (id: string, statusAtual: boolean) => {
     const novoStatus = !statusAtual;
 
@@ -59,19 +82,29 @@ export function Alerts() {
 
     setRegras((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, esta_ativa: novoStatus } : item,
+        item.id === id ? { ...item, esta_ativo: novoStatus } : item,
       ),
     );
 
     try {
       await alertsService.updateStatus(id, novoStatus);
+      setNotification({
+        id: Date.now(),
+        type: "success",
+        message: `Status da regra alterado para ${novoStatus ? "Ativa" : "Inativa"} com sucesso.`,
+      });
     } catch (error) {
       console.error("Erro na operação:", error);
       setRegras((prev) =>
         prev.map((item) =>
-          item.id === id ? { ...item, esta_ativa: statusAtual } : item,
+          item.id === id ? { ...item, esta_ativo: statusAtual } : item,
         ),
       );
+      setNotification({
+        id: Date.now(),
+        type: "error",
+        message: "Erro ao atualizar o status da regra. Tente novamente.",
+      });
     } finally {
       setBusyIds((prev) => ({ ...prev, [id]: false }));
     }
@@ -161,28 +194,47 @@ export function Alerts() {
       render: (item) => renderBadgeSeveridade(item.nivel_severidade),
     },
     {
-      key: "esta_ativa",
+      key: "esta_ativo",
       header: "Status",
       sortable: true,
       render: (item) => (
         <div className="flex items-center gap-2.5">
           <Toggle
-            checked={item.esta_ativa}
+            checked={item.esta_ativo}
             busy={!!busyIds[item.id]}
             label={`Alternar status da regra ${item.nomeRegra}`}
-            onChange={() => handleToggleStatus(item.id, item.esta_ativa)}
+            onChange={() => handleToggleStatus(item.id, item.esta_ativo)}
           />
           <span
             className={`text-xs font-medium ${
-              item.esta_ativa ? "text-emerald-400" : "text-muted"
+              item.esta_ativo ? "text-emerald-400" : "text-muted"
             }`}
           >
-            {item.esta_ativa ? "Ativa" : "Inativa"}
+            {item.esta_ativo ? "Ativa" : "Inativa"}
           </span>
         </div>
       ),
     },
   ];
+
+  const contadores = useMemo(() => {
+    return {
+      todas: regras.length,
+      ativas: regrasAtivasCount,
+      atencao: regras.filter((r) => {
+        const sev = r.nivel_severidade?.toLowerCase();
+        return sev === "atencao" || sev === "atençao";
+      }).length,
+      alerta: regras.filter((r) => {
+        const sev = r.nivel_severidade?.toLowerCase();
+        return sev === "alerta";
+      }).length,
+      critico: regras.filter((r) => {
+        const sev = r.nivel_severidade?.toLowerCase();
+        return sev === "critico" || sev === "crítico";
+      }).length,
+    };
+  }, [regras, regrasAtivasCount]);
 
   const filteredData = useMemo(() => {
     return regras.filter((item) => {
@@ -192,22 +244,49 @@ export function Alerts() {
         item.estacao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.sensorNome?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchSeveridade =
-        selectedSeveridade === "" ||
-        item.nivel_severidade.toLowerCase() ===
-          selectedSeveridade.toLowerCase();
+      if (selectedSeveridade.length === 0 || selectedSeveridade.includes("")) {
+        return matchSearch;
+      }
 
-      return matchSearch && matchSeveridade;
+      const filtroAtivas = selectedSeveridade.includes("ATIVAS");
+      const matchStatus = filtroAtivas ? item.esta_ativo : true;
+
+      const filtrosSeveridade = selectedSeveridade.filter(
+        (f) => f !== "" && f !== "ATIVAS",
+      );
+
+      let matchSeveridade = true;
+      if (filtrosSeveridade.length > 0) {
+        matchSeveridade = filtrosSeveridade.some((filtro) => {
+          const f = filtro.toLowerCase();
+          const itemSev = item.nivel_severidade?.toLowerCase();
+
+          if (f === "atencao")
+            return itemSev === "atencao" || itemSev === "atençao";
+          if (f === "alerta") return itemSev === "alerta";
+          if (f === "critico")
+            return itemSev === "critico" || itemSev === "crítico";
+
+          return false;
+        });
+      }
+
+      return matchSearch && matchStatus && matchSeveridade;
     });
   }, [regras, searchTerm, selectedSeveridade]);
 
-  const regrasAtivasCount = useMemo(
-    () => regras.filter((r) => r.esta_ativa).length,
-    [regras],
-  );
+  const paginatedData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, page, pageSize]);
 
   return (
     <div className="min-h-screen bg-[#0B1120] text-base-content p-6 space-y-6">
+      <Toast
+        notification={notification}
+        onClose={() => setNotification(null)}
+      />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -227,7 +306,29 @@ export function Alerts() {
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
+        <Filter
+          type="checkbox"
+          value={selectedSeveridade}
+          onChange={(val) => {
+            const novosFiltros = val as string[];
+            if (novosFiltros.includes("") && !selectedSeveridade.includes("")) {
+              setSelectedSeveridade([]);
+            } else {
+              setSelectedSeveridade(novosFiltros.filter((f) => f !== ""));
+            }
+          }}
+          options={[
+            { label: `${contadores.todas} Todas regras`, value: "" },
+            { label: `${contadores.ativas} Ativas`, value: "ATIVAS" },
+            { label: `${contadores.atencao} Atenção`, value: "ATENCAO" },
+            { label: `${contadores.alerta} Alerta`, value: "ALERTA" },
+            { label: `${contadores.critico} Críticas`, value: "CRITICO" },
+          ]}
+          showReset={false}
+          size="sm"
+        />
+
         <div className="max-w-md w-full">
           <SearchInput
             placeholder="Buscar por nome, estação ou sensor..."
@@ -237,29 +338,30 @@ export function Alerts() {
             size="md"
           />
         </div>
-
-        <Filter
-          type="radio"
-          value={selectedSeveridade}
-          onChange={(val) => setSelectedSeveridade(val as string)}
-          options={[
-            { label: "Todas", value: "" },
-            { label: "Críticas", value: "Critico" },
-            { label: "Alerta", value: "Alerta" },
-            { label: "Atenção", value: "Atencao" },
-          ]}
-          showReset={false}
-          size="sm"
-        />
       </div>
 
-      <Table<RegraAlerta>
-        columns={columns}
-        data={filteredData}
-        loading={loading}
-        keyExtractor={(item) => item.id}
-        emptyMessage="Nenhuma regra de alerta encontrada"
-      />
+      <div className="space-y-2">
+        <Table<RegraAlerta>
+          columns={columns}
+          data={paginatedData}
+          loading={loading}
+          keyExtractor={(item) => item.id}
+          emptyMessage="Nenhuma regra de alerta encontrada"
+        />
+
+        {!loading && filteredData.length > 0 && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredData.length}
+            onPage={setPage}
+            onPageSize={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
+        )}
+      </div>
 
       {isModalOpen && (
         <Modal
