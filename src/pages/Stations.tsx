@@ -9,7 +9,7 @@ import { SearchInput } from '../shared/components/SearchInput'
 import { Table, type TableColumn } from '../shared/components/Table'
 import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
-import { Input, Select } from '../shared/components/Field'
+import { Input } from '../shared/components/Field'
 import axios from 'axios'
 import api from '../api/instance'
 
@@ -170,7 +170,6 @@ export function Stations({
   const [formNome, setFormNome] = useState('')
   const [formLat, setFormLat] = useState('')
   const [formLon, setFormLon] = useState('')
-  const [formStatus, setFormStatus] = useState<StationStatus>('Ativa')
 
   const notify = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotification({
@@ -334,8 +333,8 @@ export function Stations({
           nome: formNome.trim(),
           municipio,
           coordenadas: { latitude, longitude },
-          status: formStatus,
-          ativo: formStatus === 'Ativa',
+          status: 'Ativa',
+          ativo: true,
         })
       } catch (err: unknown) {
         const isConflict =
@@ -372,8 +371,8 @@ export function Stations({
         nome: formNome.trim(),
         municipio,
         coordenadas: { latitude, longitude },
-        status: formStatus,
-        ativo: formStatus === 'Ativa',
+        status: 'Ativa',
+        ativo: true,
         criadoEm: new Date().toISOString(),
       }
 
@@ -384,7 +383,6 @@ export function Stations({
       setFormNome('')
       setFormLat('')
       setFormLon('')
-      setFormStatus('Ativa')
       setIsNewStationModalOpen(false)
     } catch (error: unknown) {
       const isConflict =
@@ -582,16 +580,14 @@ export function Stations({
               />
             </div>
 
-            <Select
-              label="Status Inicial"
-              value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value as StationStatus)}
-            >
-              <option value="Ativa">Ativa</option>
-              <option value="Inativa">Inativa</option>
-              <option value="Manutenção">Manutenção</option>
-              <option value="Em instalação">Em instalação</option>
-            </Select>
+            <div>
+              <span className="mb-1.5 block text-xs font-semibold tracking-wide text-muted">
+                Status Inicial
+              </span>
+              <div className="flex items-center">
+                <StatusBadge status="Ativa" />
+              </div>
+            </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-line">
               <Button
@@ -634,11 +630,12 @@ export function Stations({
             </Button>
             <Button
               variant="primary"
+              aria-label="+ Nova Estação"
               onClick={() => setIsNewStationModalOpen(true)}
               className="w-full sm:w-auto"
             >
               <Icon name="plus" size={16} />
-               Nova Estação
+              Nova Estação
             </Button>
           </div>
         </header>
