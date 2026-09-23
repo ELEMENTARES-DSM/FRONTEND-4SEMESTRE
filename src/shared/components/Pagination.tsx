@@ -4,6 +4,8 @@ interface Props {
   page: number
   pageSize: number
   total: number
+  itemLabel?: string
+  pageSizes?: number[]
   onPage: (page: number) => void
   onPageSize: (size: number) => void
 }
@@ -11,6 +13,8 @@ export function Pagination({
   page,
   pageSize,
   total,
+  itemLabel = 'itens',
+  pageSizes = [10, 20, 50],
   onPage,
   onPageSize,
 }: Props) {
@@ -22,7 +26,7 @@ export function Pagination({
     'flex h-8 min-w-8 items-center justify-center gap-1 rounded-md border border-line px-2 text-[13px] text-muted transition hover:border-primary hover:text-primary hover:-translate-y-px active:scale-95 disabled:cursor-not-allowed disabled:text-line disabled:hover:translate-y-0 disabled:hover:border-line'
   return (
     <nav
-      aria-label="Paginação de usuários"
+      aria-label={`Paginação de ${itemLabel}`}
       className="flex flex-wrap items-center justify-between gap-2.5 py-3.5 sm:border-t sm:border-line sm:px-5"
     >
       <div className="hidden items-center gap-2.5 sm:flex">
@@ -31,15 +35,15 @@ export function Pagination({
           <span className="text-base-content">
             {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}
           </span>{' '}
-          de <span className="text-base-content">{total}</span> usuários
+          de <span className="text-base-content">{total}</span> {itemLabel}
         </span>
         <Select
-          aria-label="Usuários por página"
+          aria-label={`${itemLabel} por página`}
           value={pageSize}
           onChange={(e) => onPageSize(Number(e.target.value))}
           className="rounded-md py-1 text-[13px]"
         >
-          {[10, 20, 50].map((size) => (
+          {pageSizes.map((size) => (
             <option key={size} value={size}>
               {size} por página
             </option>
