@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StationsTable } from "../../components/StationsTable/StationsTable";
+
 import { KpiCards } from "../../components/KpiCards/KpiCards";
 import { KpiCardsSkeleton } from "../../components/KpiCards/KpiCardsSkeleton";
 import {
@@ -51,24 +51,18 @@ export function Platform() {
     (estacao) => estacao.status_operacional === "Inativa",
   ).length;
 
-return (
-  <main className="min-h-screen bg-[#0B1120] p-6">
-    {loading ? (
-      <KpiCardsSkeleton />
-    ) : (
-      <>
+  return (
+    <main className="min-h-screen bg-[#0B1120] p-6">
+      {loading ? (
+        <KpiCardsSkeleton />
+      ) : (
         <KpiCards
           total={total}
           ativas={ativas}
           comFalha={comFalha}
           inativas={inativas}
         />
-
-        <div className="mt-6">
-          <StationsTable estacoes={estacoes} />
-        </div>
-      </>
-    )}
-  </main>
-);
+      )}
+    </main>
+  );
 }
