@@ -57,12 +57,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
+    let logoutConfirmado = !session?.token
+
     try {
-      if (session?.token) await api.post('/auth/logout')
+      if (session?.token) {
+        await api.post('/auth/logout')
+        logoutConfirmado = true
+      }
     } catch {
+      throw new Error('Não foi possível encerrar a sessão. Tente novamente.')
     } finally {
-      clear()
-      navigate('/login', { replace: true })
+      if (logoutConfirmado) {
+        clear()
+        navigate('/login', { replace: true })
+      }
     }
   }
 
