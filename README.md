@@ -92,3 +92,5 @@ Validação manual com a API disponível: abrir uma estação, conferir listagem
 As chamadas utilizam `VITE_API_URL`, com `http://localhost:8080` como padrão, sem interceptação por mocks. Configure a URL no `.env` e reinicie `npm run dev` após alterações. A autenticação envia o token salvo em `localStorage` na chave `token` como Bearer Token.
 
 Os endpoints de listagem e alteração de status acima foram preservados. A integração ainda precisa alinhar a resposta `{ resumo, estacoes }` da listagem de estações, os campos dos sensores (`tipo` e `unidade_medida` no backend), o cálculo de tempo desde o último ping e o encaminhamento de `/sensores` no gateway.
+
+Para consultar os dados reais, mantenha `VITE_USE_MOCKS=false` em `.env.local`, configure `VITE_API_URL` e reinicie o servidor de desenvolvimento. É necessário que a API esteja acessível e exista um token válido em `localStorage.token`. Falhas de consulta são exibidas na tela, sem dados fictícios de fallback.

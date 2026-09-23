@@ -11,8 +11,8 @@ interface SensorsTableProps {
 
 export function SensorsTable({ sensores, onToggleStatus, updatingIds, loading = false }: SensorsTableProps) {
   const columns: TableColumn<Sensor>[] = [
-    { key: "codigo", header: "Código", className: "font-mono" },
-    { key: "nome", header: "Nome" },
+    { key: "codigo", header: "Código", className: "font-mono", render: (sensor) => sensor.codigo ?? "—" },
+    { key: "nome", header: "Nome", render: (sensor) => sensor.nome ?? "—" },
     { key: "grandeza", header: "Grandeza" },
     { key: "unidade", header: "Unidade de Medida" },
     {
@@ -42,7 +42,7 @@ export function SensorsTable({ sensores, onToggleStatus, updatingIds, loading = 
         <Button
           variant={sensor.status === "Ativo" ? "danger" : "outline"}
           busy={updatingIds.includes(sensor.id)}
-          aria-label={`${sensor.status === "Ativo" ? "Inativar" : "Ativar"} sensor ${sensor.codigo}`}
+          aria-label={`${sensor.status === "Ativo" ? "Inativar" : "Ativar"} sensor ${sensor.codigo ?? sensor.grandeza}`}
           onClick={() => onToggleStatus(sensor)}
         >
           {updatingIds.includes(sensor.id) ? "Salvando…" : sensor.status === "Ativo" ? "Inativar" : "Ativar"}

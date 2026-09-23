@@ -8,6 +8,14 @@ const instance = axios.create({
     }
 })
 
+// O adaptador de testes nunca é ativado no build de produção.
+if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true') {
+    instance.defaults.adapter = async (config) => {
+        const { mockApiAdapter } = await import('../mocks/apiAdapter');
+        return mockApiAdapter(config);
+    };
+}
+
 // Interceptor para requisições com Bearer Token
 instance.interceptors.request.use(
     (config) => {

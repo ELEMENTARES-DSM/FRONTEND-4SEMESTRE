@@ -1,3 +1,4 @@
+import { SensorCreateModal } from "../../components/SensorsTable/SensorCreateModal";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -18,6 +19,7 @@ export function StationDetails() {
 
 function StationSensors({ estacaoId }: { estacaoId?: string }) {
   const navigate = useNavigate();
+  const [modalAberto, setModalAberto] = useState(false);
   const [sensores, setSensores] = useState<Sensor[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -114,8 +116,8 @@ function StationSensors({ estacaoId }: { estacaoId?: string }) {
 
           <Button
             variant="primary"
-            disabled
-            title="Cadastro disponível em uma próxima etapa"
+            disabled={!estacaoId || loading}
+            onClick={() => setModalAberto(true)}
           >
             + Adicionar Sensor
           </Button>
@@ -136,6 +138,18 @@ function StationSensors({ estacaoId }: { estacaoId?: string }) {
             sensores={sensores}
             updatingIds={updatingIds}
             onToggleStatus={handleToggleStatus}
+          />
+        )}
+        {modalAberto && estacaoId && (
+          <SensorCreateModal
+            estacaoId={estacaoId}
+            onClose={() => setModalAberto(false)}
+            onCreated={(sensor) => {
+              setSensores((atuais) => [...atuais.filter((item) => item.id !== sensor.id), sensor]);
+              setModalAberto(false);
+              setErro(null);
+              if (loadFailed) setReload((value) => value + 1);
+            }}
           />
         )}
       </div>

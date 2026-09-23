@@ -1,3 +1,6 @@
+import { isAxiosError } from "axios";
+import { Button } from "../../shared/components/Button";
+import { StationsTable } from "../../components/StationsTable/StationsTable";
 import { useEffect, useState } from "react";
 
 import { KpiCards } from "../../components/KpiCards/KpiCards";
@@ -9,6 +12,8 @@ import {
 
 export function Platform() {
   const [estacoes, setEstacoes] = useState<EstacaoStatus[]>([]);
+  const [erro, setErro] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,6 +21,8 @@ export function Platform() {
 
     async function carregarEstacoes() {
       try {
+        setLoading(true);
+        setErro(null);
         const data = await getEstacoesStatus();
 
         if (ativo) {
@@ -23,6 +30,9 @@ export function Platform() {
         }
       } catch (error) {
         console.error("Erro ao carregar estações:", error);
+        if (ativo) setErro(isAxiosError(error) && error.response?.status === 401
+          ? "Autenticação necessária. Entre novamente para carregar as estações."
+          : "Não foi possível carregar as estações. Verifique a conexão com a API e tente novamente.");
       } finally {
         if (ativo) {
           setLoading(false);
@@ -35,7 +45,7 @@ export function Platform() {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [reload]);
 
   const total = estacoes.length;
 
@@ -55,13 +65,21 @@ export function Platform() {
     <main className="min-h-screen bg-[#0B1120] p-6">
       {loading ? (
         <KpiCardsSkeleton />
+      ) : erro ? (
+        <div role="alert" className="rounded-lg border border-error/40 bg-error/10 p-4 text-error">
+          <p className="mb-3">{erro}</p>
+          <Button onClick={() => setReload((value) => value + 1)}>Tentar novamente</Button>
+        </div>
       ) : (
+        <>
         <KpiCards
           total={total}
           ativas={ativas}
           comFalha={comFalha}
           inativas={inativas}
         />
+        <div className="mt-6"><StationsTable estacoes={estacoes} /></div>
+        </>
       )}
     </main>
   );
