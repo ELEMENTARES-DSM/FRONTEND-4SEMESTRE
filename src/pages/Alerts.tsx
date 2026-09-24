@@ -8,26 +8,17 @@ import { Icon } from "../shared/components/Icon";
 import { alertsService } from "../services/alertsService";
 import { Toast, type Notificacao } from "../shared/components/Toast";
 import { Pagination } from "../shared/components/Pagination";
-
-export type NivelSeveridade = "ATENCAO" | "ALERTA" | "CRITICO";
-
-export interface RegraAlerta {
-  id: string;
-  sensor_id: string;
-  nomeRegra?: string;
-  estacao: string;
-  sensorNome: string;
-  unidadeMedida?: string;
-  operador: ">" | "<" | ">=" | "<=" | "=";
-  valor_limite: number;
-  nivel_severidade: NivelSeveridade;
-  canal_notificacao?: "Painel" | "Email" | "SMS";
-  esta_ativo: boolean;
-  criado_em?: string;
-}
+import { CreateRuleForm } from "../components/AlertRule.tsx/CreateRuleForm";
+import type {
+  RegraAlerta,
+  NivelSeveridade,
+  RegraAlertaPayload,
+  EstacaoOption,
+} from "../types/alerts";
 
 export function Alerts() {
   const [regras, setRegras] = useState<RegraAlerta[]>([]);
+  const [estacoes, setEstacoes] = useState<EstacaoOption[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
 
@@ -44,18 +35,46 @@ export function Alerts() {
     [regras],
   );
 
+  const handleCreateRule = async (payload: RegraAlertaPayload) => {
+    try {
+      await alertsService.createRegra(payload);
+      setIsModalOpen(false);
+      setNotification({
+        id: Date.now(),
+        type: "success",
+        message: "Regra de alerta cadastrada com sucesso!",
+      });
+
+      const data = await alertsService.getRegras();
+      setRegras(data);
+    } catch (error) {
+      console.error("Erro ao criar regra:", error);
+      setNotification({
+        id: Date.now(),
+        type: "error",
+        message: "Erro ao cadastrar a regra de alerta. Tente novamente.",
+      });
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
     const loadData = async () => {
       try {
         setLoading(true);
-        const data = await alertsService.getRegras();
+
+        const [dataRegras, dataEstacoes] = await Promise.all([
+          alertsService.getRegras(),
+          alertsService.getEstacoes(),
+        ]);
+
         if (isMounted) {
-          setRegras(data);
+          setRegras(dataRegras);
+          setEstacoes(dataEstacoes);
         }
       } catch (error) {
-        console.error("Erro ao carregar regras:", error);
+        console.error("Erro ao carregar dados:", error);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -139,13 +158,13 @@ export function Alerts() {
 
   const columns: TableColumn<RegraAlerta>[] = [
     {
-      key: "nomeRegra",
+      key: "nome",
       header: "Nome da Regra",
       sortable: true,
       render: (item) => (
         <div>
           <div className="font-semibold text-base-content">
-            {item.nomeRegra || `${item.sensorNome} Limite`}
+            {item.nome || `${item.sensorNome} Limite`}
           </div>
           <div className="text-xs text-primary font-mono tracking-wide">
             {item.id.substring(0, 8)}
@@ -188,10 +207,10 @@ export function Alerts() {
       ),
     },
     {
-      key: "nivel_severidade",
+      key: "severidade",
       header: "Severidade",
       sortable: true,
-      render: (item) => renderBadgeSeveridade(item.nivel_severidade),
+      render: (item) => renderBadgeSeveridade(item.severidade),
     },
     {
       key: "esta_ativo",
@@ -202,7 +221,7 @@ export function Alerts() {
           <Toggle
             checked={item.esta_ativo}
             busy={!!busyIds[item.id]}
-            label={`Alternar status da regra ${item.nomeRegra}`}
+            label={`Alternar status da regra ${item.nome}`}
             onChange={() => handleToggleStatus(item.id, item.esta_ativo)}
           />
           <span
@@ -222,15 +241,15 @@ export function Alerts() {
       todas: regras.length,
       ativas: regrasAtivasCount,
       atencao: regras.filter((r) => {
-        const sev = r.nivel_severidade?.toLowerCase();
+        const sev = r.severidade?.toLowerCase();
         return sev === "atencao" || sev === "atençao";
       }).length,
       alerta: regras.filter((r) => {
-        const sev = r.nivel_severidade?.toLowerCase();
+        const sev = r.severidade?.toLowerCase();
         return sev === "alerta";
       }).length,
       critico: regras.filter((r) => {
-        const sev = r.nivel_severidade?.toLowerCase();
+        const sev = r.severidade?.toLowerCase();
         return sev === "critico" || sev === "crítico";
       }).length,
     };
@@ -240,7 +259,7 @@ export function Alerts() {
     return regras.filter((item) => {
       const matchSearch =
         searchTerm === "" ||
-        item.nomeRegra?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.estacao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.sensorNome?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -259,7 +278,7 @@ export function Alerts() {
       if (filtrosSeveridade.length > 0) {
         matchSeveridade = filtrosSeveridade.some((filtro) => {
           const f = filtro.toLowerCase();
-          const itemSev = item.nivel_severidade?.toLowerCase();
+          const itemSev = item.severidade?.toLowerCase();
 
           if (f === "atencao")
             return itemSev === "atencao" || itemSev === "atençao";
@@ -369,27 +388,11 @@ export function Alerts() {
           description="Cadastre um novo limiar numérico associado a um sensor."
           onClose={() => setIsModalOpen(false)}
         >
-          <div className="space-y-4 py-2">
-            <p className="text-xs text-muted">
-              Formulário de cadastro em desenvolvimento...
-            </p>
-            <div className="flex justify-end gap-2 pt-4 border-t border-line">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="btn btn-sm btn-ghost text-muted hover:text-base-content"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="btn btn-sm btn-primary"
-              >
-                Salvar Regra
-              </button>
-            </div>
-          </div>
+          <CreateRuleForm
+            estacoes={estacoes}
+            onCancel={() => setIsModalOpen(false)}
+            onSubmit={handleCreateRule}
+          />
         </Modal>
       )}
     </div>
