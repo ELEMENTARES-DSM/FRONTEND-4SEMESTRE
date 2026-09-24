@@ -34,6 +34,7 @@ export interface TableProps<T = Record<string, unknown>>
   columns?: TableColumn<T>[]
   data?: T[]
   keyExtractor?: (item: T, index: number) => string | number
+  onRowClick?: (item: T) => void
   loading?: boolean
   emptyMessage?: string
   emptyIcon?: ReactNode
@@ -52,6 +53,7 @@ export function Table<T = Record<string, unknown>>({
   columns,
   data,
   keyExtractor,
+  onRowClick,
   loading = false,
   emptyMessage = 'Nenhum registro encontrado',
   emptyIcon,
@@ -222,7 +224,22 @@ export function Table<T = Record<string, unknown>>({
                   return (
                     <tr
                       key={key}
-                      className="border-b border-line/40 transition-colors hover:bg-row-hover/60"
+                      tabIndex={onRowClick ? 0 : undefined}
+                      onClick={(event) => {
+                        if (!onRowClick || loading || (event.target as HTMLElement).closest('button, a, input, select, textarea')) return
+                        onRowClick(item)
+                      }}
+                      onKeyDown={(event) => {
+                        if (!onRowClick || loading || event.target !== event.currentTarget) return
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          onRowClick(item)
+                        }
+                      }}
+                      className={twMerge(
+                        'border-b border-line/40 transition-colors hover:bg-row-hover/60',
+                        onRowClick && 'group cursor-pointer focus-visible:bg-row-hover focus-visible:outline-2 focus-visible:outline-primary',
+                      )}
                     >
                       {columns.map((col) => {
                         const cellContent = col.render

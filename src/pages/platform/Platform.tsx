@@ -1,4 +1,5 @@
 import { isAxiosError } from "axios";
+import { Link } from "react-router-dom";
 import { StationsTable } from "../../components/stationsTable/StationsTable";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/useAuth";
@@ -67,6 +68,7 @@ export function Platform() {
     <main className="min-h-screen bg-[#0B1120] p-6">
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">Plataforma</h1>
+        <Link to="/platform/usuarios" className="text-sm text-primary hover:underline">Usuários</Link>
         {usuario && (
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted">{usuario.nome}</span>
