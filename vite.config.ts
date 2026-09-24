@@ -8,5 +8,10 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
+    proxy: {
+      "/auth": "http://localhost:80",
+      "/usuarios": "http://localhost:80",
+      "/estacoes": "http://localhost:80",
+    },
   },
 });
