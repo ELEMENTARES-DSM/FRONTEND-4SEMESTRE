@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import type { EstacaoStatus } from "../../services/estacoesService";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
@@ -29,13 +30,13 @@ export function StationsTable({ estacoes }: StationsTableProps) {
   function getBadgeClass(status: EstacaoStatus["status_operacional"]) {
     switch (status) {
       case "Ativa":
-        return "badge-success";
+        return "bg-success/15 text-success border border-success/30";
 
       case "Com Falha":
-        return "badge-error animate-pulse";
+        return "bg-error/15 text-error border border-error/30";
 
       case "Inativa":
-        return "badge-neutral";
+        return "bg-muted/15 text-muted border border-muted/30";
     }
   }
 
@@ -97,7 +98,7 @@ export function StationsTable({ estacoes }: StationsTableProps) {
                 <tr key={estacao.id}>
                   <td className="font-mono text-sm">{estacao.codigo}</td>
 
-                  <td>{estacao.nome}</td>
+                  <td><Link className="link link-primary" to={`/platform/estacoes/${estacao.id}`}>{estacao.nome}</Link></td>
 
                   <td>{formatUltimoPing(estacao.ultimo_ping)}</td>
 
@@ -105,10 +106,20 @@ export function StationsTable({ estacoes }: StationsTableProps) {
 
                   <td>
                     <span
-                      className={`badge ${getBadgeClass(
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getBadgeClass(
                         estacao.status_operacional,
                       )}`}
                     >
+                      <span
+                        aria-hidden="true"
+                        className={`size-1.5 rounded-full ${
+                          estacao.status_operacional === "Ativa"
+                            ? "bg-success"
+                            : estacao.status_operacional === "Com Falha"
+                              ? "bg-error"
+                              : "bg-muted"
+                        }`}
+                      />
                       {estacao.status_operacional}
                     </span>
                   </td>

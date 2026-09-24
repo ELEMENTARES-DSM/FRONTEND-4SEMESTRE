@@ -3,7 +3,16 @@ import { getValidToken } from '../auth/session'
 
 const instance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/',
+  headers: { 'Content-Type': 'application/json' },
 })
+
+// O adaptador de testes nunca é ativado no build de produção.
+if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true') {
+  instance.defaults.adapter = async (config) => {
+    const { mockApiAdapter } = await import('../mocks/apiAdapter')
+    return mockApiAdapter(config)
+  }
+}
 
 instance.interceptors.request.use((config) => {
   const token = getValidToken()
