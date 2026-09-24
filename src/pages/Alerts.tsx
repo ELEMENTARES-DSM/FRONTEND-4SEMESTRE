@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Table, type TableColumn } from "../shared/components/Table";
 import { SearchInput } from "../shared/components/SearchInput";
 import { Filter } from "../shared/components/Filter";
