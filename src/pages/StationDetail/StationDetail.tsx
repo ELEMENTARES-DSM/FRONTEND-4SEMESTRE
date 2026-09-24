@@ -1,4 +1,4 @@
-import { SensorCreateModal } from "../../components/SensorsTable/SensorCreateModal";
+import { SensorCreateModal } from "../../components/sensorsTable/SensorCreateModal";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -9,8 +9,8 @@ import {
 } from "../../services/sensoresService";
 
 import { Button } from "../../shared/components/Button";
-import { SensorsTable } from "../../components/SensorsTable/SensorsTable";
-import { SensorsTableSkeleton } from "../../components/SensorsTable/SensorsTableSkeleton";
+import { SensorsTable } from "../../components/sensorsTable/SensorsTable";
+import { SensorsTableSkeleton } from "../../components/sensorsTable/SensorsTableSkeleton";
 
 export function StationDetails() {
   const { estacaoId } = useParams();

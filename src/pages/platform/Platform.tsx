@@ -1,11 +1,11 @@
 import { isAxiosError } from "axios";
-import { StationsTable } from "../../components/StationsTable/StationsTable";
+import { StationsTable } from "../../components/stationsTable/StationsTable";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/useAuth";
 import { Button } from "../../shared/components/Button";
 
-import { KpiCards } from "../../components/KpiCards/KpiCards";
-import { KpiCardsSkeleton } from "../../components/KpiCards/KpiCardsSkeleton";
+import { KpiCards } from "../../components/kpiCards/KpiCards";
+import { KpiCardsSkeleton } from "../../components/kpiCards/KpiCardsSkeleton";
 import {
   getEstacoesStatus,
   type EstacaoStatus,

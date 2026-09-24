@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { Platform } from '../pages/Platform/Platform'
+import { Platform } from '../pages/platform/Platform'
 import { StationDetails } from '../pages/StationDetail/StationDetail'
 import DevLib from '../pages/DevLib'
 import { Login } from '../pages/Login/Login'
