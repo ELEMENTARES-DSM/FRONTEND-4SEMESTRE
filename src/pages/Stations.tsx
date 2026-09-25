@@ -269,8 +269,8 @@ export function Stations({ initialStations }: StationsProps = {}) {
         nome: formNome.trim(),
         municipio,
         coordenadas: { latitude, longitude },
-        status: formStatus,
-        ativo: formStatus === 'Ativa',
+        status: 'Ativa',
+        ativo: true,
       })
 
       notify('Estação meteorológica cadastrada com sucesso', 'success')
