@@ -578,7 +578,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
               className="w-full sm:w-auto"
             >
               <Icon name="plus" size={16} />
-               Nova Estação
+              + Nova Estação
             </Button>
           </div>
         </header>
