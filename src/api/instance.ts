@@ -1,8 +1,9 @@
 import axios from 'axios'
 import { getValidToken } from '../auth/session'
+import { env } from '../config/env'
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/',
+  baseURL: env.apiUrl || '/',
   headers: { 'Content-Type': 'application/json' },
 })
 
