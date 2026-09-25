@@ -19,10 +19,7 @@ import type {
   StationCoordinates,
   StationsProps,
 } from '../types/stations'
-import axios from 'axios'
-import api from '../api/instance'
 
-// Re-exporta tipos de domínio para compatibilidade retroativa com consumidores e testes
 export type {
   Station,
   StationStatus,
