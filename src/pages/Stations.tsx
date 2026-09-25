@@ -19,6 +19,9 @@ import type {
   StationCoordinates,
   StationsProps,
 } from '../types/stations'
+import { Input } from '../shared/components/Field'
+import axios from 'axios'
+import api from '../api/instance'
 
 // Re-exporta tipos de domínio para compatibilidade retroativa com consumidores e testes
 export type {
@@ -134,7 +137,6 @@ export function Stations({ initialStations }: StationsProps = {}) {
   const [formNome, setFormNome] = useState('')
   const [formLat, setFormLat] = useState('')
   const [formLon, setFormLon] = useState('')
-  const [formStatus, setFormStatus] = useState<StationStatus>('Ativa')
 
   const notify = useCallback(
     (message: string, type: 'success' | 'error' = 'success') => {
@@ -281,7 +283,6 @@ export function Stations({ initialStations }: StationsProps = {}) {
       setFormNome('')
       setFormLat('')
       setFormLon('')
-      setFormStatus('Ativa')
       setIsNewStationModalOpen(false)
     } catch (error: unknown) {
       if (error instanceof StationConflictError) {
@@ -522,16 +523,14 @@ export function Stations({ initialStations }: StationsProps = {}) {
               />
             </div>
 
-            <Select
-              label="Status Inicial"
-              value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value as StationStatus)}
-            >
-              <option value="Ativa">Ativa</option>
-              <option value="Inativa">Inativa</option>
-              <option value="Manutenção">Manutenção</option>
-              <option value="Em instalação">Em instalação</option>
-            </Select>
+            <div>
+              <span className="mb-1.5 block text-xs font-semibold tracking-wide text-muted">
+                Status Inicial
+              </span>
+              <div className="flex items-center">
+                <StatusBadge status="Ativa" />
+              </div>
+            </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-line">
               <Button
@@ -574,11 +573,12 @@ export function Stations({ initialStations }: StationsProps = {}) {
             </Button>
             <Button
               variant="primary"
+              aria-label="+ Nova Estação"
               onClick={() => setIsNewStationModalOpen(true)}
               className="w-full sm:w-auto"
             >
               <Icon name="plus" size={16} />
-              + Nova Estação
+              Nova Estação
             </Button>
           </div>
         </header>
