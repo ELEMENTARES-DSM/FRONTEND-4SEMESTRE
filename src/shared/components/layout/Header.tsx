@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { NAV } from "./navItems";
 
@@ -7,7 +6,6 @@ export interface HeaderProps {
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const [search, setSearch] = useState("");
   const { pathname } = useLocation();
 
   const current = NAV.find((n) =>
