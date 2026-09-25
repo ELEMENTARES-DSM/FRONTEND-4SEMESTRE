@@ -1,12 +1,12 @@
-import type { SidebarNavItem } from './layoutConstants';
+import type { SidebarNavItem } from "./layoutConstants";
 
 /**
  * Itens padrão de navegação do menu lateral
  */
 export const NAV: SidebarNavItem[] = [
   {
-    path: '/platform',
-    label: 'Visão Geral',
+    path: "/platform",
+    label: "Visão Geral",
     icon: (
       <svg
         width="18"
@@ -27,8 +27,8 @@ export const NAV: SidebarNavItem[] = [
     ),
   },
   {
-    path: '/platform/territory',
-    label: 'Estações',
+    path: "/platform/territory",
+    label: "Estações",
     icon: (
       <svg
         width="18"
@@ -50,9 +50,8 @@ export const NAV: SidebarNavItem[] = [
     ),
   },
   {
-    path: '/alerts',
-    label: 'Alertas',
-    badge: '3',
+    path: "/alerts",
+    label: "Alertas",
     icon: (
       <svg
         width="18"
