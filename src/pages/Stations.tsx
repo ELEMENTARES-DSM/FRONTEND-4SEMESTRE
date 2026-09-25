@@ -9,7 +9,7 @@ import { SearchInput } from '../shared/components/SearchInput'
 import { Table, type TableColumn } from '../shared/components/Table'
 import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
-import { Input, Select } from '../shared/components/Field'
+import { Input } from '../shared/components/Field'
 import { useStations } from '../hooks/useStations'
 import { StationConflictError } from '../services/stations/stations.errors'
 import type {
@@ -19,7 +19,6 @@ import type {
   StationCoordinates,
   StationsProps,
 } from '../types/stations'
-import { Input } from '../shared/components/Field'
 import axios from 'axios'
 import api from '../api/instance'
 
