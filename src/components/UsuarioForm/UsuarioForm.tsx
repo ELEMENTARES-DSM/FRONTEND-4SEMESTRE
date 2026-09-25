@@ -41,8 +41,7 @@ export function UsuarioForm({ usuario, papeis, busy, error, onClose, onSave }: U
       email: email.trim(),
       senha,
       papel_id: papelId,
-      // O backend não aceita null: município vazio é omitido.
-      municipio: municipio.trim() || undefined,
+      municipio: exigeMunicipio ? municipio.trim() : undefined,
     })
   }
 
@@ -70,8 +69,10 @@ export function UsuarioForm({ usuario, papeis, busy, error, onClose, onSave }: U
               <option key={papel.id} value={papel.id} title={papel.descricao}>{papel.nome}</option>
             ))}
           </Select>
-          <Input label={exigeMunicipio ? 'Município *' : 'Município'} value={municipio}
+          {exigeMunicipio && (
+            <Input label={exigeMunicipio ? 'Município *' : 'Município'} value={municipio}
             onChange={(e) => setMunicipio(e.target.value)} error={enviado ? erros.municipio : ''} maxLength={100} />
+          )}
         </fieldset>
         {error && <p role="alert" className="mt-3 text-[13px] text-error">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
