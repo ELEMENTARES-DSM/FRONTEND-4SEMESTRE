@@ -7,7 +7,7 @@ export function AppLayout() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#0B1120]">
+    <div className="flex h-screen w-full overflow-hidden bg-base-100">
       <Sidebar open={isMobileOpen} onClose={() => setIsMobileOpen(false)} />
 
       <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">

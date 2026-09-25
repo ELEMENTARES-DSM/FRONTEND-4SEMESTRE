@@ -1,21 +1,5 @@
 import type { ReactNode } from 'react';
 
-/**
- * Paleta de cores do layout e tema escuro (Pulso Urbano)
- */
-export const C = {
-  navy950: '#071426',
-  navy800: '#0d1d33',
-  navy700: '#11243d',
-  navy600: '#203752',
-  navy500: '#334e68',
-  slate400: '#94a3b8',
-  slate300: '#cbd5e1',
-  slate200: '#e2e8f0',
-  teal500: '#22b8b5',
-  green500: '#8cdd2d',
-  red500: '#f05252',
-} as const;
 
 export interface SidebarNavItem {
   path: string;
