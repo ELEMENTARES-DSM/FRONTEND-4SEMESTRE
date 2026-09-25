@@ -36,6 +36,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.restoreAllMocks()
+    vi.stubEnv('VITE_USE_MOCK', 'false')
   })
 
   it('Cenário 1: Cadastro de estação com sucesso pelo Gestor Público', async () => {
@@ -244,6 +245,7 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.restoreAllMocks()
+    vi.stubEnv('VITE_USE_MOCK', 'false')
   })
 
   it('renderiza o cabeçalho, contadores e lista inicial de estações', () => {
@@ -332,5 +334,36 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Cancelar/i }))
     expect(screen.queryByRole('heading', { name: 'Nova Estação' })).not.toBeInTheDocument()
+  })
+
+  it('permite cadastrar e listar estação quando VITE_USE_MOCK=true sem acionar api', async () => {
+    vi.stubEnv('VITE_USE_MOCK', 'true')
+    const postSpy = vi.spyOn(api, 'post')
+
+    render(<Stations initialStations={[]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+
+    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
+      target: { value: 'EST-MOCK-TEST' },
+    })
+    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
+      target: { value: 'Estação Mock' },
+    })
+    fireEvent.change(screen.getByLabelText(/Latitude/i), {
+      target: { value: '-23.1234' },
+    })
+    fireEvent.change(screen.getByLabelText(/Longitude/i), {
+      target: { value: '-45.5678' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+
+    expect(
+      await screen.findByText('Estação meteorológica cadastrada com sucesso'),
+    ).toBeInTheDocument()
+
+    expect(postSpy).not.toHaveBeenCalled()
+    expect(screen.getByText('EST-MOCK-TEST')).toBeInTheDocument()
   })
 })

@@ -10,97 +10,24 @@ import { Table, type TableColumn } from '../shared/components/Table'
 import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
 import { Input, Select } from '../shared/components/Field'
-import axios from 'axios'
-import api from '../api/instance'
+import { useStations } from '../hooks/useStations'
+import { StationConflictError } from '../services/stations/stations.errors'
+import type {
+  Station,
+  StationStatus,
+  FilterStatus,
+  StationCoordinates,
+  StationsProps,
+} from '../types/stations'
 
-export type StationStatus = 'Ativa' | 'Inativa' | 'Manutenção' | 'Em instalação'
-
-export type FilterStatus = 'Todas' | 'Ativas' | 'Inativas' | 'Manutenção' | 'Instalação'
-
-export interface StationCoordinates {
-  latitude: number
-  longitude: number
+// Re-exporta tipos de domínio para compatibilidade retroativa com consumidores e testes
+export type {
+  Station,
+  StationStatus,
+  FilterStatus,
+  StationCoordinates,
+  StationsProps,
 }
-
-export interface Station {
-  id: string
-  codigo: string
-  nome: string
-  municipio?: string
-  coordenadas: StationCoordinates
-  status: StationStatus
-  ativo: boolean
-  criadoEm?: string
-  atualizadoEm?: string
-}
-
-const INITIAL_STATIONS: Station[] = [
-  {
-    id: 'est-001',
-    codigo: 'EST-SJC-001',
-    nome: 'São José dos Campos - Centro',
-    municipio: 'São José dos Campos',
-    coordenadas: { latitude: -23.1791, longitude: -45.8872 },
-    status: 'Ativa',
-    ativo: true,
-  },
-  {
-    id: 'est-002',
-    codigo: 'EST-SJC-002',
-    nome: 'São José dos Campos - Satélite',
-    coordenadas: { latitude: -23.2237, longitude: -45.8914 },
-    status: 'Ativa',
-    ativo: true,
-  },
-  {
-    id: 'est-003',
-    codigo: 'EST-JAC-001',
-    nome: 'Jacareí - Vila Branca',
-    coordenadas: { latitude: -23.2982, longitude: -45.9664 },
-    status: 'Ativa',
-    ativo: true,
-  },
-  {
-    id: 'est-004',
-    codigo: 'EST-TAU-001',
-    nome: 'Taubaté - Independência',
-    coordenadas: { latitude: -23.0264, longitude: -45.5558 },
-    status: 'Ativa',
-    ativo: true,
-  },
-  {
-    id: 'est-005',
-    codigo: 'EST-CAC-001',
-    nome: 'Caçapava - Centro',
-    coordenadas: { latitude: -23.1008, longitude: -45.7072 },
-    status: 'Inativa',
-    ativo: false,
-  },
-  {
-    id: 'est-006',
-    codigo: 'EST-PIN-001',
-    nome: 'Pindamonhangaba - Crispim',
-    coordenadas: { latitude: -22.9248, longitude: -45.4616 },
-    status: 'Inativa',
-    ativo: false,
-  },
-  {
-    id: 'est-007',
-    codigo: 'EST-GUA-001',
-    nome: 'Guaratinguetá - Pedregulho',
-    coordenadas: { latitude: -22.8163, longitude: -45.1925 },
-    status: 'Manutenção',
-    ativo: false,
-  },
-  {
-    id: 'est-008',
-    codigo: 'EST-CPJ-001',
-    nome: 'Campos do Jordão - Capivari',
-    coordenadas: { latitude: -22.7394, longitude: -45.5913 },
-    status: 'Em instalação',
-    ativo: false,
-  },
-]
 
 export function StatusBadge({ status }: { status: StationStatus }) {
   const configs: Record<
@@ -145,18 +72,55 @@ export function StatusBadge({ status }: { status: StationStatus }) {
   )
 }
 
-export interface StationsProps {
-  initialStations?: Station[]
+function formatDateTime(value?: string | Date | null): string {
+  if (!value) return '—'
+  const date = typeof value === 'string' ? new Date(value) : value
+  if (isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
-export function Stations({
-  initialStations = INITIAL_STATIONS,
-}: StationsProps = {}) {
-  const [stations, setStations] = useState<Station[]>(initialStations)
-  const [loading, setLoading] = useState(false)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
-  const [notification, setNotification] = useState<Notificacao | null>(null)
+export function BatteryBadge({ level }: { level?: number | null }) {
+  if (level === null || level === undefined) {
+    return <span className="text-muted text-xs font-mono">—</span>
+  }
 
+  let colorClass = 'text-success'
+  let bgClass = 'bg-success/15 border-success/30'
+
+  if (level <= 20) {
+    colorClass = 'text-error'
+    bgClass = 'bg-error/15 border-error/30'
+  } else if (level <= 50) {
+    colorClass = 'text-warning'
+    bgClass = 'bg-warning/15 border-warning/30'
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 font-mono text-xs font-semibold px-2 py-0.5 rounded border ${bgClass} ${colorClass}`}
+    >
+      {level}%
+    </span>
+  )
+}
+
+export function Stations({ initialStations }: StationsProps = {}) {
+  const {
+    stations,
+    loading,
+    togglingId,
+    refresh,
+    createStation,
+    toggleStationStatus,
+  } = useStations({ initialStations })
+
+  const [notification, setNotification] = useState<Notificacao | null>(null)
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('Todas')
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -172,28 +136,26 @@ export function Stations({
   const [formLon, setFormLon] = useState('')
   const [formStatus, setFormStatus] = useState<StationStatus>('Ativa')
 
-  const notify = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({
-      id: Date.now(),
-      message,
-      type,
-    })
-  }, [])
+  const notify = useCallback(
+    (message: string, type: 'success' | 'error' = 'success') => {
+      setNotification({
+        id: Date.now(),
+        message,
+        type,
+      })
+    },
+    [],
+  )
 
-  const fetchStations = useCallback(async () => {
-    setLoading(true)
+  const handleRefresh = useCallback(async () => {
     try {
-      if (api.defaults.baseURL) {
-        await new Promise((resolve) => setTimeout(resolve, 500))
-      }
+      await refresh()
       notify('Dados de estações atualizados.', 'success')
     } catch (error) {
-      notify('Falha ao sincronizar com a API.', 'error')
+      notify('Falha ao sincronizar com a fonte de dados.', 'error')
       console.error(error)
-    } finally {
-      setLoading(false)
     }
-  }, [notify])
+  }, [refresh, notify])
 
   const counts = useMemo(() => {
     let ativas = 0
@@ -259,30 +221,9 @@ export function Stations({
       if (!station) return
 
       const nextAtivo = !station.ativo
-      const nextStatus: StationStatus = nextAtivo ? 'Ativa' : 'Inativa'
-
-      setTogglingId(stationId)
 
       try {
-        try {
-          await api.patch(`/estacoes/${stationId}`, {
-            ativo: nextAtivo,
-            status: nextStatus,
-          })
-        } catch {
-          if (api.defaults.baseURL) {
-            await new Promise((resolve) => setTimeout(resolve, 0))
-          }
-        }
-
-        setStations((prev) =>
-          prev.map((item) =>
-            item.id === stationId
-              ? { ...item, ativo: nextAtivo, status: nextStatus }
-              : item,
-          ),
-        )
-
+        await toggleStationStatus(stationId)
         notify(
           `Estação ${station.codigo} ${nextAtivo ? 'ativada' : 'desativada'} com sucesso!`,
           'success',
@@ -290,11 +231,9 @@ export function Stations({
       } catch (error) {
         notify(`Erro ao alterar o status da estação ${station.codigo}.`, 'error')
         console.error(error)
-      } finally {
-        setTogglingId(null)
       }
     },
-    [stations, notify],
+    [stations, toggleStationStatus, notify],
   )
 
   const handleCreateStation = async (e: React.FormEvent) => {
@@ -327,57 +266,15 @@ export function Stations({
       const municipio =
         localStorage.getItem('userMunicipio') || 'São José dos Campos'
 
-      // Tenta persistência no backend ou simula conflito
-      try {
-        await api.post('/estacoes', {
-          codigo: normalizedCodigo,
-          nome: formNome.trim(),
-          municipio,
-          coordenadas: { latitude, longitude },
-          status: formStatus,
-          ativo: formStatus === 'Ativa',
-        })
-      } catch (err: unknown) {
-        const isConflict =
-          (axios.isAxiosError(err) && err.response?.status === 409) ||
-          (typeof err === 'object' &&
-            err !== null &&
-            'status' in err &&
-            (err as { status: number }).status === 409)
-
-        if (isConflict) {
-          throw err
-        }
-        // Caso a estação já exista no estado local em memória (fallback se backend offline)
-        if (stations.some((s) => s.codigo === normalizedCodigo)) {
-          const conflictError = Object.assign(new Error('Conflict'), {
-            status: 409,
-            response: {
-              status: 409,
-              data: {
-                message: 'Identificador de estação já cadastrado no sistema',
-              },
-            },
-          })
-          throw conflictError
-        }
-        if (axios.isAxiosError(err) && err.response) {
-          throw err
-        }
-      }
-
-      const newStation: Station = {
-        id: `est-${Date.now()}`,
+      await createStation({
         codigo: normalizedCodigo,
         nome: formNome.trim(),
         municipio,
         coordenadas: { latitude, longitude },
         status: formStatus,
         ativo: formStatus === 'Ativa',
-        criadoEm: new Date().toISOString(),
-      }
+      })
 
-      setStations((prev) => [newStation, ...prev])
       notify('Estação meteorológica cadastrada com sucesso', 'success')
 
       setFormCodigo('')
@@ -387,14 +284,7 @@ export function Stations({
       setFormStatus('Ativa')
       setIsNewStationModalOpen(false)
     } catch (error: unknown) {
-      const isConflict =
-        (axios.isAxiosError(error) && error.response?.status === 409) ||
-        (typeof error === 'object' &&
-          error !== null &&
-          'status' in error &&
-          (error as { status: number }).status === 409)
-
-      if (isConflict) {
+      if (error instanceof StationConflictError) {
         notify('Identificador de estação já cadastrado no sistema', 'error')
       } else {
         notify('Erro ao cadastrar nova estação.', 'error')
@@ -411,7 +301,7 @@ export function Stations({
         key: 'codigo',
         header: 'Código',
         sortable: true,
-        width: '160px',
+        width: '140px',
         render: (item) => (
           <button
             type="button"
@@ -435,7 +325,7 @@ export function Stations({
         key: 'coordenadas',
         header: 'Coordenadas (Lat/Lon)',
         sortable: false,
-        width: '210px',
+        width: '170px',
         render: (item) => (
           <span className="font-mono text-xs text-muted">
             {item.coordenadas.latitude.toFixed(4)},{' '}
@@ -448,14 +338,46 @@ export function Stations({
         header: 'Status',
         align: 'center',
         sortable: true,
-        width: '160px',
+        width: '130px',
         render: (item) => <StatusBadge status={item.status} />,
+      },
+      {
+        key: 'nivel_bateria',
+        header: 'Nível da Bateria',
+        align: 'center',
+        sortable: true,
+        width: '130px',
+        render: (item) => <BatteryBadge level={item.nivel_bateria} />,
+      },
+      {
+        key: 'ultimo_ping',
+        header: 'Último Ping',
+        align: 'center',
+        sortable: true,
+        width: '150px',
+        render: (item) => (
+          <span className="font-mono text-xs text-muted">
+            {formatDateTime(item.ultimo_ping)}
+          </span>
+        ),
+      },
+      {
+        key: 'criado_em',
+        header: 'Criado em',
+        align: 'center',
+        sortable: true,
+        width: '150px',
+        render: (item) => (
+          <span className="font-mono text-xs text-muted">
+            {formatDateTime(item.criado_em ?? item.criadoEm)}
+          </span>
+        ),
       },
       {
         key: 'actions',
         header: 'Ações',
         align: 'right',
-        width: '110px',
+        width: '90px',
         render: (item) => (
           <div className="flex items-center justify-end">
             <Toggle
@@ -525,6 +447,24 @@ export function Stations({
                     {selectedStation.ativo ? 'Ligada' : 'Desligada'}
                   </span>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-line/50">
+                <div>
+                  <span className="text-xs text-muted block mb-1">Nível da Bateria:</span>
+                  <BatteryBadge level={selectedStation.nivel_bateria} />
+                </div>
+                <div>
+                  <span className="text-xs text-muted block mb-1">Último Ping:</span>
+                  <span className="font-mono text-xs text-base-content">
+                    {formatDateTime(selectedStation.ultimo_ping)}
+                  </span>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-line/50">
+                <span className="text-xs text-muted block mb-1">Criado em:</span>
+                <span className="font-mono text-xs text-base-content">
+                  {formatDateTime(selectedStation.criado_em ?? selectedStation.criadoEm)}
+                </span>
               </div>
             </div>
 
@@ -624,7 +564,7 @@ export function Stations({
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
-              onClick={fetchStations}
+              onClick={handleRefresh}
               busy={loading}
               title="Atualizar lista de estações"
               className="w-full sm:w-auto"
