@@ -84,6 +84,11 @@ function formatDateTime(value?: string | Date | null): string {
   }).format(date)
 }
 
+function getCoordinateValue(value: unknown): number {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
 export function BatteryBadge({ level }: { level?: number | null }) {
   if (level === null || level === undefined) {
     return <span className="text-muted text-xs font-mono">—</span>
@@ -268,9 +273,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
         codigo: normalizedCodigo,
         nome: formNome.trim(),
         municipio,
-        coordenadas: { latitude, longitude },
+        latitude,
+        longitude,
         status: 'Ativa',
-        ativo: true,
       })
 
       notify('Estação meteorológica cadastrada com sucesso', 'success')
@@ -323,12 +328,17 @@ export function Stations({ initialStations }: StationsProps = {}) {
         header: 'Coordenadas (Lat/Lon)',
         sortable: false,
         width: '170px',
-        render: (item) => (
-          <span className="font-mono text-xs text-muted">
-            {item.coordenadas.latitude.toFixed(4)},{' '}
-            {item.coordenadas.longitude.toFixed(4)}
-          </span>
-        ),
+        render: (item) => {
+          const latitude = getCoordinateValue(item.latitude ?? item.coordenadas?.latitude)
+          const longitude = getCoordinateValue(item.longitude ?? item.coordenadas?.longitude)
+
+          return (
+            <span className="font-mono text-xs text-muted">
+              {latitude.toFixed(4)},{' '}
+              {longitude.toFixed(4)}
+            </span>
+          )
+        },
       },
       {
         key: 'status',
@@ -425,8 +435,8 @@ export function Stations({ initialStations }: StationsProps = {}) {
               <div>
                 <span className="text-xs text-muted block">Coordenadas:</span>
                 <span className="font-mono text-xs text-base-content">
-                  Lat: {selectedStation.coordenadas.latitude.toFixed(4)} | Lon:{' '}
-                  {selectedStation.coordenadas.longitude.toFixed(4)}
+                  Lat: {getCoordinateValue(selectedStation.latitude ?? selectedStation.coordenadas?.latitude).toFixed(4)} | Lon:{' '}
+                  {getCoordinateValue(selectedStation.longitude ?? selectedStation.coordenadas?.longitude).toFixed(4)}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1">

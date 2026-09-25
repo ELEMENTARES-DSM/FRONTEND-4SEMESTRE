@@ -122,17 +122,20 @@ export const stationsMockService = {
       throw new StationConflictError()
     }
 
+    const status = data.status ?? 'Ativa'
     const now = new Date().toISOString()
     const newStation: Station = {
       id: `est-${Date.now()}`,
       codigo: normalizedCodigo,
       nome: data.nome.trim(),
       municipio: data.municipio,
-      coordenadas: { ...data.coordenadas },
-      status: data.status,
-      ativo: data.ativo,
-      nivel_bateria: null,
-      ultimo_ping: null,
+      coordenadas: { latitude: data.latitude, longitude: data.longitude },
+      latitude: data.latitude,
+      longitude: data.longitude,
+      status,
+      ativo: status !== 'Inativa',
+      nivel_bateria: data.nivel_bateria ?? null,
+      ultimo_ping: data.ultimo_ping ?? null,
       criado_em: now,
       criadoEm: now,
     }

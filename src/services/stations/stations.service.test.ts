@@ -37,9 +37,9 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
       codigo: 'EST-TEST-001',
       nome: 'Estação de Teste Mock',
       municipio: 'São José dos Campos',
-      coordenadas: { latitude: -23.1234, longitude: -45.5678 },
+      latitude: -23.1234,
+      longitude: -45.5678,
       status: 'Ativa' as const,
-      ativo: true,
     }
 
     const created = await stationsMockService.createStation(newStationData)
@@ -51,6 +51,29 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
     // Verifica se foi persistida em memória no mock
     const all = await stationsMockService.getStations()
     expect(all.some((s) => s.codigo === 'EST-TEST-001')).toBe(true)
+  })
+
+  it('4.1. API normaliza coordenadas vindas como string para número', async () => {
+    vi.spyOn(api, 'get').mockResolvedValueOnce({
+      data: [
+        {
+          id: 'est-1',
+          codigo: 'EST-1',
+          nome: 'E1',
+          municipio: 'SJC',
+          latitude: '-23.1234',
+          longitude: '-45.5678',
+          status: 'Ativa',
+          ativo: true,
+        },
+      ],
+    })
+
+    const stations = await stationsApiService.getStations()
+    expect(stations[0].coordenadas.latitude).toBe(-23.1234)
+    expect(stations[0].coordenadas.longitude).toBe(-45.5678)
+    expect(typeof stations[0].coordenadas.latitude).toBe('number')
+    expect(typeof stations[0].coordenadas.longitude).toBe('number')
   })
 
   it('5. Mock consegue alterar status', async () => {
@@ -79,9 +102,9 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
       codigo: 'EST-SJC-001', // código que já existe no INITIAL_STATIONS
       nome: 'Tentativa Duplicada',
       municipio: 'São José dos Campos',
-      coordenadas: { latitude: -23.1, longitude: -45.1 },
+      latitude: -23.1,
+      longitude: -45.1,
       status: 'Ativa' as const,
-      ativo: true,
     }
 
     await expect(stationsMockService.createStation(duplicateData)).rejects.toThrow(
@@ -113,16 +136,16 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
       codigo: 'EST-2',
       nome: 'E2',
       municipio: 'São José dos Campos',
-      coordenadas: { latitude: -23.0, longitude: -45.0 },
+      latitude: -23.0,
+      longitude: -45.0,
       status: 'Ativa' as const,
-      ativo: true,
     }
     await stationsApiService.createStation(newStationData)
     expect(postSpy).toHaveBeenCalledWith('/estacoes', newStationData)
 
     // PATCH /estacoes/:id
     await stationsApiService.updateStationStatus('est-1', false, 'Inativa')
-    expect(patchSpy).toHaveBeenCalledWith('/estacoes/est-1', {
+    expect(patchSpy).toHaveBeenCalledWith('/estacoes/est-1/status', {
       ativo: false,
       status: 'Inativa',
     })
@@ -141,9 +164,9 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
       codigo: 'EST-EXISTENTE',
       nome: 'Conflito',
       municipio: 'SJC',
-      coordenadas: { latitude: -23.0, longitude: -45.0 },
+      latitude: -23.0,
+      longitude: -45.0,
       status: 'Ativa' as const,
-      ativo: true,
     }
 
     await expect(stationsApiService.createStation(data)).rejects.toThrow(
@@ -177,9 +200,9 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
       codigo: 'EST-MOCK-NO-HTTP',
       nome: 'Sem HTTP',
       municipio: 'SJC',
-      coordenadas: { latitude: -23.0, longitude: -45.0 },
+      latitude: -23.0,
+      longitude: -45.0,
       status: 'Ativa',
-      ativo: true,
     })
     await stationsService.updateStationStatus('est-001', false, 'Inativa')
 

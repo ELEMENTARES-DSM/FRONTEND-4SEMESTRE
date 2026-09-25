@@ -89,9 +89,9 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
           codigo: 'EST-SJC-001',
           nome: 'Estação Parque Tecnológico',
           municipio: 'São José dos Campos',
-          coordenadas: { latitude: -23.1534, longitude: -45.7922 },
+          latitude: -23.1534,
+          longitude: -45.7922,
           status: 'Ativa',
-          ativo: true,
         }),
       )
     })
@@ -223,7 +223,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
 
     // Então o status da estação deve ser atualizado para "Inativa" no backend / banco
     await waitFor(() => {
-      expect(patchSpy).toHaveBeenCalledWith('/estacoes/est-001', {
+      expect(patchSpy).toHaveBeenCalledWith('/estacoes/est-001/status', {
         ativo: false,
         status: 'Inativa',
       })

@@ -13,6 +13,8 @@ export interface Station {
   nome: string
   municipio?: string
   coordenadas: StationCoordinates
+  latitude?: number
+  longitude?: number
   status: StationStatus
   ativo: boolean
   nivel_bateria?: number | null
@@ -30,9 +32,11 @@ export interface CreateStationDTO {
   codigo: string
   nome: string
   municipio: string
-  coordenadas: StationCoordinates
-  status: StationStatus
-  ativo: boolean
+  latitude: number
+  longitude: number
+  status?: string
+  nivel_bateria?: number | null
+  ultimo_ping?: Date | null
 }
 
 export interface UpdateStationStatusDTO {
