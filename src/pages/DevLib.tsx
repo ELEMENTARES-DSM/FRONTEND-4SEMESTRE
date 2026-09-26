@@ -10,6 +10,7 @@ import { SearchInput } from '../shared/components/SearchInput'
 import { Table, type TableColumn } from '../shared/components/Table'
 import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
+import { Header, Sidebar } from '../shared/components/layout'
 
 interface EstacaoMock {
   id: string
@@ -36,6 +37,7 @@ export default function DevLib() {
   const [lastSearched, setLastSearched] = useState('')
   const [tableLoading, setTableLoading] = useState(false)
   const [tableZebra, setTableZebra] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   const sampleEstacoes: EstacaoMock[] = [
     { id: 'EST-01', nome: 'Estação Central', localizacao: 'São Paulo - SP', temperatura: 24.5, status: 'Operacional' },
@@ -644,6 +646,53 @@ export default function DevLib() {
           zebra={tableZebra}
           keyExtractor={(item) => item.id}
         />
+      </Card>
+
+      {/* 12. Layout (Sidebar e Header) */}
+      <Card
+        className="mt-8"
+        icon={<Icon name="box" className="text-primary" />}
+        title={
+          <>
+            12. Layout (<code className="text-xs text-primary font-mono">Sidebar.tsx</code> & <code className="text-xs text-primary font-mono">Header.tsx</code>)
+          </>
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
+              Simular Sidebar Mobile (Drawer)
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted mb-4">
+          Componentes estruturais de navegação e cabeçalho da plataforma Pulso Urbano com suporte a rotas ativas, gaveta mobile (drawer deslizante), perfil do usuário e indicador de status do sistema:
+        </p>
+
+        {/* Drawer Mobile interativo na DevLib */}
+        <Sidebar
+          open={isMobileSidebarOpen}
+          onClose={() => setIsMobileSidebarOpen(false)}
+        />
+
+        <div className="rounded-xl border border-line bg-base-300/30 overflow-hidden">
+          <Header onMenuClick={() => setIsMobileSidebarOpen(true)} />
+          <div className="flex h-96 overflow-hidden">
+            <div className="shrink-0 h-full">
+              <Sidebar open={true} className="!relative !z-0" />
+            </div>
+            <div className="flex-1 p-6 overflow-y-auto flex items-center justify-center text-center text-muted">
+              <div>
+                <p className="text-sm font-semibold text-base-content">Área de Conteúdo Principal</p>
+                <p className="text-xs mt-1">O menu lateral e o cabeçalho integram-se harmonicamente às páginas da aplicação.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </Card>
     </div>
   )

@@ -28,9 +28,9 @@ export function Pagination({
   const last = Math.max(1, Math.ceil(total / pageSize))
   const pages = Array.from({ length: last }, (_, i) => i + 1).filter(
     (n) => last <= 7 || n === 1 || n === last || Math.abs(n - page) <= 1,
-  )
+  );
   const buttonClass =
-    'flex h-8 min-w-8 items-center justify-center gap-1 rounded-md border border-line px-2 text-[13px] text-muted transition hover:border-primary hover:text-primary hover:-translate-y-px active:scale-95 disabled:cursor-not-allowed disabled:text-line disabled:hover:translate-y-0 disabled:hover:border-line'
+    "flex h-8 min-w-8 items-center justify-center gap-1 rounded-md border border-line px-2 text-[13px] text-muted transition hover:border-primary hover:text-primary hover:-translate-y-px active:scale-95 disabled:cursor-not-allowed disabled:text-line disabled:hover:translate-y-0 disabled:hover:border-line";
   return (
     <nav
       aria-label={`Paginação de ${itemLabel}`}
@@ -88,9 +88,9 @@ export function Pagination({
               )}
               <button
                 aria-label={`Página ${n}`}
-                aria-current={n === page ? 'page' : undefined}
+                aria-current={n === page ? "page" : undefined}
                 onClick={() => onPage(n)}
-                className={`${buttonClass} ${n === page ? 'border-primary bg-primary/15 font-semibold text-primary' : ''}`}
+                className={`${buttonClass} ${n === page ? "border-primary bg-primary/15 font-semibold text-primary" : ""}`}
               >
                 {n}
               </button>
@@ -108,5 +108,5 @@ export function Pagination({
         </button>
       </div>
     </nav>
-  )
+  );
 }
