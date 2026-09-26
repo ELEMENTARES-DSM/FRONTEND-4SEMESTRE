@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { Stations, type Station } from './Stations'
 import api from '../api/instance'
+import { AuthContext } from '../auth/AuthContext'
 
 const MOCK_STATIONS: Station[] = [
   {
@@ -35,6 +36,8 @@ const MOCK_STATIONS: Station[] = [
 describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
   beforeEach(() => {
     localStorage.clear()
+    localStorage.setItem('userRole', 'GESTOR_PUBLICO')
+    localStorage.setItem('userMunicipio', 'São José dos Campos')
     vi.restoreAllMocks()
     vi.stubEnv('VITE_USE_MOCK', 'false')
   })
@@ -244,6 +247,8 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
 describe('Componente Stations - Funcionalidades adicionais', () => {
   beforeEach(() => {
     localStorage.clear()
+    localStorage.setItem('userRole', 'GESTOR_PUBLICO')
+    localStorage.setItem('userMunicipio', 'São José dos Campos')
     vi.restoreAllMocks()
     vi.stubEnv('VITE_USE_MOCK', 'false')
   })
@@ -367,3 +372,290 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
     expect(screen.getByText('EST-MOCK-TEST')).toBeInTheDocument()
   })
 })
+
+describe('Controle de Acesso e Autorização - Componente Stations', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+    vi.stubEnv('VITE_USE_MOCK', 'false')
+  })
+
+  it('permite que ADMINISTRADOR visualize lista de estações, botão de criação e Toggle', () => {
+    localStorage.setItem('userRole', 'ADMINISTRADOR')
+
+    render(<Stations initialStations={MOCK_STATIONS} />)
+
+    expect(screen.getByRole('heading', { name: /Inventário de Estações/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /\+ Nova Estação/i })).toBeInTheDocument()
+    expect(screen.getByText('EST-SJC-001')).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: /Alternar status da estação EST-SJC-001/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Você não possui permissão para visualizar/i)).not.toBeInTheDocument()
+  })
+
+  it('bloqueia PESQUISADOR: não exibe lista de estações e renderiza mensagem de Acesso Negado', () => {
+    localStorage.setItem('userRole', 'PESQUISADOR')
+
+    render(<Stations initialStations={MOCK_STATIONS} />)
+
+    expect(screen.getByRole('alert', { name: /Acesso negado/i })).toBeInTheDocument()
+    expect(
+      screen.getByText('Você não possui permissão para visualizar o inventário de estações.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('EST-SJC-001')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /\+ Nova Estação/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: /Alternar status da estação EST-SJC-001/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('impede chamada GET /estacoes quando usuário é PESQUISADOR sem permissão de visualização', async () => {
+    localStorage.setItem('userRole', 'PESQUISADOR')
+    const getSpy = vi.spyOn(api, 'get')
+
+    render(<Stations />)
+
+    expect(getSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert', { name: /Acesso negado/i })).toBeInTheDocument()
+  })
+
+  it('exibe mensagem apropriada quando a API retorna erro HTTP 403 com mensagem de perfil insuficiente', async () => {
+    localStorage.setItem('userRole', 'ADMINISTRADOR')
+    localStorage.setItem('userMunicipio', 'São José dos Campos')
+
+    vi.spyOn(api, 'post').mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 403,
+        data: {
+          erro: 'Acesso negado. Perfil insuficiente para esta ação.',
+        },
+      },
+    })
+
+    render(<Stations initialStations={[]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+
+    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
+      target: { value: 'EST-SJC-999' },
+    })
+    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
+      target: { value: 'Localidade Teste 403' },
+    })
+    fireEvent.change(screen.getByLabelText(/Latitude/i), {
+      target: { value: '-23.1234' },
+    })
+    fireEvent.change(screen.getByLabelText(/Longitude/i), {
+      target: { value: '-45.5678' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+
+    expect(
+      await screen.findByText('Acesso negado. Perfil insuficiente para esta ação.'),
+    ).toBeInTheDocument()
+  })
+
+  it('exibe mensagem apropriada quando a API retorna erro HTTP 403 ao alternar status da estação', async () => {
+    localStorage.setItem('userRole', 'ADMINISTRADOR')
+
+    vi.spyOn(api, 'patch').mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 403,
+        data: {
+          erro: 'Acesso negado. Perfil insuficiente para esta ação.',
+        },
+      },
+    })
+
+    render(<Stations initialStations={[MOCK_STATIONS[0]]} />)
+
+    const toggle = screen.getByRole('switch', {
+      name: /Alternar status da estação EST-SJC-001/i,
+    })
+    fireEvent.click(toggle)
+
+    expect(
+      await screen.findByText('Acesso negado. Perfil insuficiente para esta ação.'),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('Regra de Negócio RN-01 - Extração oficial do município do usuário autenticado', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+    vi.stubEnv('VITE_USE_MOCK', 'false')
+  })
+
+  it('extrai e vincula automaticamente o município oficial do usuário via AuthContext (Taubaté) ao criar estação', async () => {
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValueOnce({
+      data: {
+        id: 'est-tau-001',
+        codigo: 'EST-TAU-001',
+        nome: 'Taubaté - Distrito Industrial',
+        municipio: 'Taubaté',
+        coordenadas: { latitude: -23.025, longitude: -45.555 },
+        status: 'Ativa',
+        ativo: true,
+      },
+    })
+
+    render(
+      <AuthContext.Provider
+        value={{
+          token: 'mock-valid-token',
+          usuario: {
+            id: 'user-tau-1',
+            nome: 'Gestor Taubaté',
+            papel: 'GESTOR_PUBLICO',
+            municipio: 'Taubaté',
+          },
+          login: vi.fn(),
+          logout: vi.fn(),
+        }}
+      >
+        <Stations initialStations={[]} />
+      </AuthContext.Provider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+
+    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
+      target: { value: 'EST-TAU-001' },
+    })
+    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
+      target: { value: 'Taubaté - Distrito Industrial' },
+    })
+    fireEvent.change(screen.getByLabelText(/Latitude/i), {
+      target: { value: '-23.025' },
+    })
+    fireEvent.change(screen.getByLabelText(/Longitude/i), {
+      target: { value: '-45.555' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith(
+        '/estacoes',
+        expect.objectContaining({
+          codigo: 'EST-TAU-001',
+          nome: 'Taubaté - Distrito Industrial',
+          municipio: 'Taubaté',
+          latitude: -23.025,
+          longitude: -45.555,
+          status: 'Ativa',
+        }),
+      )
+    })
+
+    expect(
+      await screen.findByText('Estação meteorológica cadastrada com sucesso'),
+    ).toBeInTheDocument()
+  })
+
+  it('bloqueia o cadastro e exibe notificação de erro se usuario.municipio for nulo no AuthContext', async () => {
+    const postSpy = vi.spyOn(api, 'post')
+
+    render(
+      <AuthContext.Provider
+        value={{
+          token: 'mock-valid-token',
+          usuario: {
+            id: 'user-sem-municipio',
+            nome: 'Gestor Sem Município',
+            papel: 'GESTOR_PUBLICO',
+            municipio: null,
+          },
+          login: vi.fn(),
+          logout: vi.fn(),
+        }}
+      >
+        <Stations initialStations={[]} />
+      </AuthContext.Provider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+
+    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
+      target: { value: 'EST-SEM-001' },
+    })
+    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
+      target: { value: 'Estação Teste' },
+    })
+    fireEvent.change(screen.getByLabelText(/Latitude/i), {
+      target: { value: '-23.123' },
+    })
+    fireEvent.change(screen.getByLabelText(/Longitude/i), {
+      target: { value: '-45.456' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+
+    expect(postSpy).not.toHaveBeenCalled()
+    expect(
+      await screen.findByText('Município do usuário não identificado para vincular à estação.'),
+    ).toBeInTheDocument()
+  })
+
+  it('bloqueia o cadastro e exibe notificação de erro se usuario.municipio for vazio/espaços', async () => {
+    const postSpy = vi.spyOn(api, 'post')
+
+    render(
+      <AuthContext.Provider
+        value={{
+          token: 'mock-valid-token',
+          usuario: {
+            id: 'user-municipio-vazio',
+            nome: 'Gestor Município Vazio',
+            papel: 'GESTOR_PUBLICO',
+            municipio: '   ',
+          },
+          login: vi.fn(),
+          logout: vi.fn(),
+        }}
+      >
+        <Stations initialStations={[]} />
+      </AuthContext.Provider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+
+    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
+      target: { value: 'EST-EMPTY-001' },
+    })
+    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
+      target: { value: 'Estação Teste Vazio' },
+    })
+    fireEvent.change(screen.getByLabelText(/Latitude/i), {
+      target: { value: '-23.123' },
+    })
+    fireEvent.change(screen.getByLabelText(/Longitude/i), {
+      target: { value: '-45.456' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+
+    expect(postSpy).not.toHaveBeenCalled()
+    expect(
+      await screen.findByText('Município do usuário não identificado para vincular à estação.'),
+    ).toBeInTheDocument()
+  })
+
+  it('não disponibiliza nenhum campo editável de município no formulário de criação (RN-01)', () => {
+    localStorage.setItem('userRole', 'GESTOR_PUBLICO')
+    localStorage.setItem('userMunicipio', 'São José dos Campos')
+
+    render(<Stations initialStations={[]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+
+    expect(screen.queryByLabelText(/município/i)).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/município/i)).not.toBeInTheDocument()
+  })
+})
+

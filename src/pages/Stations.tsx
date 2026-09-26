@@ -11,7 +11,11 @@ import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
 import { Input } from '../shared/components/Field'
 import { useStations } from '../hooks/useStations'
-import { StationConflictError } from '../services/stations/stations.errors'
+import { useAuthorization } from '../auth/useAuthorization'
+import {
+  StationConflictError,
+  StationForbiddenError,
+} from '../services/stations/stations.errors'
 import type {
   Station,
   StationStatus,
@@ -115,6 +119,8 @@ export function BatteryBadge({ level }: { level?: number | null }) {
 }
 
 export function Stations({ initialStations }: StationsProps = {}) {
+  const { usuario, canViewStations, canCreateStation, canToggleStation } = useAuthorization()
+
   const {
     stations,
     loading,
@@ -122,7 +128,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
     refresh,
     createStation,
     toggleStationStatus,
-  } = useStations({ initialStations })
+  } = useStations({ initialStations, autoFetch: canViewStations })
 
   const [notification, setNotification] = useState<Notificacao | null>(null)
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('Todas')
@@ -155,7 +161,11 @@ export function Stations({ initialStations }: StationsProps = {}) {
       await refresh()
       notify('Dados de estações atualizados.', 'success')
     } catch (error) {
-      notify('Falha ao sincronizar com a fonte de dados.', 'error')
+      if (error instanceof StationForbiddenError) {
+        notify(error.message, 'error')
+      } else {
+        notify('Falha ao sincronizar com a fonte de dados.', 'error')
+      }
       console.error(error)
     }
   }, [refresh, notify])
@@ -220,6 +230,11 @@ export function Stations({ initialStations }: StationsProps = {}) {
 
   const handleToggleStatus = useCallback(
     async (stationId: string) => {
+      if (!canToggleStation) {
+        notify('Acesso negado. Perfil insuficiente para esta ação.', 'error')
+        return
+      }
+
       const station = stations.find((s) => s.id === stationId)
       if (!station) return
 
@@ -232,15 +247,24 @@ export function Stations({ initialStations }: StationsProps = {}) {
           'success',
         )
       } catch (error) {
-        notify(`Erro ao alterar o status da estação ${station.codigo}.`, 'error')
+        if (error instanceof StationForbiddenError) {
+          notify(error.message, 'error')
+        } else {
+          notify(`Erro ao alterar o status da estação ${station.codigo}.`, 'error')
+        }
         console.error(error)
       }
     },
-    [stations, toggleStationStatus, notify],
+    [stations, toggleStationStatus, notify, canToggleStation],
   )
 
   const handleCreateStation = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!canCreateStation) {
+      notify('Acesso negado. Perfil insuficiente para esta ação.', 'error')
+      return
+    }
 
     if (!formCodigo.trim() || !formNome.trim()) {
       notify('Por favor, preencha todos os campos obrigatórios.', 'error')
@@ -262,12 +286,16 @@ export function Stations({ initialStations }: StationsProps = {}) {
       return
     }
 
+    const municipio = usuario?.municipio?.trim()
+    if (!municipio) {
+      notify('Município do usuário não identificado para vincular à estação.', 'error')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const normalizedCodigo = formCodigo.trim().toUpperCase()
-      const municipio =
-        localStorage.getItem('userMunicipio') || 'São José dos Campos'
 
       await createStation({
         codigo: normalizedCodigo,
@@ -288,6 +316,8 @@ export function Stations({ initialStations }: StationsProps = {}) {
     } catch (error: unknown) {
       if (error instanceof StationConflictError) {
         notify('Identificador de estação já cadastrado no sistema', 'error')
+      } else if (error instanceof StationForbiddenError) {
+        notify(error.message, 'error')
       } else {
         notify('Erro ao cadastrar nova estação.', 'error')
         console.error(error)
@@ -297,8 +327,8 @@ export function Stations({ initialStations }: StationsProps = {}) {
     }
   }
 
-  const columns: TableColumn<Station>[] = useMemo(
-    () => [
+  const columns: TableColumn<Station>[] = useMemo(() => {
+    const baseColumns: TableColumn<Station>[] = [
       {
         key: 'codigo',
         header: 'Código',
@@ -380,7 +410,10 @@ export function Stations({ initialStations }: StationsProps = {}) {
           </span>
         ),
       },
-      {
+    ]
+
+    if (canToggleStation) {
+      baseColumns.push({
         key: 'actions',
         header: 'Ações',
         align: 'right',
@@ -395,10 +428,39 @@ export function Stations({ initialStations }: StationsProps = {}) {
             />
           </div>
         ),
-      },
-    ],
-    [togglingId, handleToggleStatus],
-  )
+      })
+    }
+
+    return baseColumns
+  }, [togglingId, handleToggleStatus, canToggleStation])
+
+  if (!canViewStations) {
+    return (
+      <div className="min-h-screen bg-base-100 p-6 sm:p-10 text-base-content">
+        <Toast notification={notification} onClose={() => setNotification(null)} />
+        <div className="max-w-7xl mx-auto space-y-6">
+          <header className="border-b border-line pb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-base-content">
+              Inventário de Estações
+            </h1>
+          </header>
+          <div
+            role="alert"
+            aria-label="Acesso negado"
+            className="rounded-xl border border-error/30 bg-error/10 p-8 text-error flex flex-col items-center justify-center text-center gap-3 my-8"
+          >
+            <div className="size-12 rounded-full bg-error/20 flex items-center justify-center text-error">
+              <Icon name="alert" size={24} />
+            </div>
+            <h2 className="text-lg font-semibold text-error">Acesso Negado</h2>
+            <p className="text-sm text-base-content/80 max-w-md">
+              Você não possui permissão para visualizar o inventário de estações.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-base-100 p-6 sm:p-10 text-base-content">
@@ -484,7 +546,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
         </Modal>
       )}
 
-      {isNewStationModalOpen && (
+      {isNewStationModalOpen && canCreateStation && (
         <Modal
           title="Nova Estação"
           description="Preencha os dados abaixo para registrar uma nova estação no inventário."
@@ -577,15 +639,17 @@ export function Stations({ initialStations }: StationsProps = {}) {
               <Icon name="refresh" size={14} />
               <span className="hidden sm:inline">Atualizar</span>
             </Button>
-            <Button
-              variant="primary"
-              aria-label="+ Nova Estação"
-              onClick={() => setIsNewStationModalOpen(true)}
-              className="w-full sm:w-auto"
-            >
-              <Icon name="plus" size={16} />
-              Nova Estação
-            </Button>
+            {canCreateStation && (
+              <Button
+                variant="primary"
+                aria-label="+ Nova Estação"
+                onClick={() => setIsNewStationModalOpen(true)}
+                className="w-full sm:w-auto"
+              >
+                <Icon name="plus" size={16} />
+                Nova Estação
+              </Button>
+            )}
           </div>
         </header>
 

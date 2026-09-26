@@ -13,7 +13,14 @@ export function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/platform" element={<Platform />} />
-        <Route path="/platform/territory" element={<Stations />} />
+        <Route
+          path="/platform/territory"
+          element={
+            <ProtectedRoute requiredPermission="territory.access">
+              <Stations />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/platform/estacoes/:estacaoId" element={<StationDetails />} />
       </Route>
       <Route path="/devlib" element={<DevLib />} />

@@ -38,6 +38,25 @@ instance.interceptors.response.use(
       && sentToken && sentToken === localStorage.getItem('token')) {
       window.dispatchEvent(new Event('auth:unauthorized'))
     }
+
+    if (error.response?.status === 403) {
+      const serverMessage =
+        error.response.data?.erro ||
+        error.response.data?.message ||
+        'Acesso negado. Perfil insuficiente para esta ação.'
+
+      window.dispatchEvent(
+        new CustomEvent('auth:forbidden', {
+          detail: {
+            url,
+            status: 403,
+            message: serverMessage,
+            data: error.response.data,
+          },
+        }),
+      )
+    }
+
     return Promise.reject(error)
   },
 )

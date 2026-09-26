@@ -1,11 +1,19 @@
 import axios from 'axios'
 import api from '../../api/instance'
 import type { CreateStationDTO, Station, StationStatus } from '../../types/stations'
-import { StationConflictError } from './stations.errors'
+import { StationConflictError, StationForbiddenError } from './stations.errors'
 
 const toNumber = (value: unknown): number => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function extractForbiddenMessage(error: unknown): string {
+  if (axios.isAxiosError(error) && error.response?.data) {
+    const data = error.response.data as { erro?: string; message?: string }
+    return data.erro || data.message || 'Acesso negado. Perfil insuficiente para esta ação.'
+  }
+  return 'Acesso negado. Perfil insuficiente para esta ação.'
 }
 
 const normalizeStation = (
@@ -30,8 +38,15 @@ const normalizeStation = (
 
 export const stationsApiService = {
   async getStations(): Promise<Station[]> {
-    const response = await api.get<Station[]>('/estacoes')
-    return (response.data ?? []).map((station) => normalizeStation(station))
+    try {
+      const response = await api.get<Station[]>('/estacoes')
+      return (response.data ?? []).map((station) => normalizeStation(station))
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        throw new StationForbiddenError(extractForbiddenMessage(error))
+      }
+      throw error
+    }
   },
 
   async createStation(data: CreateStationDTO): Promise<Station> {
@@ -52,6 +67,10 @@ export const stationsApiService = {
 
       return normalizeStation(stationPayload)
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        throw new StationForbiddenError(extractForbiddenMessage(error))
+      }
+
       const isConflict =
         (axios.isAxiosError(error) && error.response?.status === 409) ||
         (typeof error === 'object' &&
@@ -76,17 +95,25 @@ export const stationsApiService = {
     ativo: boolean,
     status: StationStatus,
   ): Promise<Partial<Station>> {
-    const response = await api.patch<Partial<Station>>(`/estacoes/${id}/status`, {
-      ativo,
-      status,
-    })
+    try {
+      const response = await api.patch<Partial<Station>>(`/estacoes/${id}/status`, {
+        ativo,
+        status,
+      })
 
-    const responseData = response?.data ?? {}
-    return {
-      id,
-      ativo,
-      status,
-      ...responseData,
+      const responseData = response?.data ?? {}
+      return {
+        id,
+        ativo,
+        status,
+        ...responseData,
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        throw new StationForbiddenError(extractForbiddenMessage(error))
+      }
+      throw error
     }
   },
 }
+

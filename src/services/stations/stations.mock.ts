@@ -122,7 +122,7 @@ export const stationsMockService = {
       throw new StationConflictError()
     }
 
-    const status = data.status ?? 'Ativa'
+    const status: StationStatus = (data.status as StationStatus) ?? 'Ativa'
     const now = new Date().toISOString()
     const newStation: Station = {
       id: `est-${Date.now()}`,

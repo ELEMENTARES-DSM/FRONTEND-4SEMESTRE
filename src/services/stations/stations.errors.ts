@@ -1,7 +1,3 @@
-/**
- * Erro de domínio lançado quando há conflito de identificador/código da estação.
- * Desacopla a camada de UI de códigos HTTP (409) e AxiosError.
- */
 export class StationConflictError extends Error {
   constructor(message = 'Identificador de estação já cadastrado no sistema') {
     super(message)
@@ -15,5 +11,13 @@ export class StationNotFoundError extends Error {
     super(message)
     this.name = 'StationNotFoundError'
     Object.setPrototypeOf(this, StationNotFoundError.prototype)
+  }
+}
+
+export class StationForbiddenError extends Error {
+  constructor(message = 'Acesso negado. Perfil insuficiente para esta ação.') {
+    super(message)
+    this.name = 'StationForbiddenError'
+    Object.setPrototypeOf(this, StationForbiddenError.prototype)
   }
 }
