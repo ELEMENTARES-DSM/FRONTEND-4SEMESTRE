@@ -35,7 +35,8 @@ export function useAuthorization(): UseAuthorizationReturn {
           if (parsed && typeof parsed === 'object' && parsed.papel) {
             return parsed as Usuario
           }
-        } catch {
+        } catch (_error) {
+          void _error
         }
       }
 
@@ -52,7 +53,7 @@ export function useAuthorization(): UseAuthorizationReturn {
     }
 
     return null
-  }, [authContext?.usuario])
+  }, [authContext])
 
   const papel = (usuario?.papel as Role) ?? null
 
