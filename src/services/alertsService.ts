@@ -4,99 +4,108 @@ import type {
   RegraAlertaPayload,
   EstacaoOption,
 } from "../types/alerts";
-import { MOCK_REGRAS_ALERTA, MOCK_ESTACOES } from "./mocks/alertsMock";
 
-let regrasEmMemoria: RegraAlerta[] = [...MOCK_REGRAS_ALERTA];
-
-const delay = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
+interface RegraAlertaBackend {
+  id: string;
+  nome: string;
+  sensor_id: string;
+  sensor_tipo: string;
+  sensor_unidade_medida: string;
+  estacao_id: string;
+  estacao_codigo: string;
+  estacao_nome: string;
+  municipio: string;
+  operador: ">" | ">=" | "<" | "<=" | "=";
+  valor_limite: number;
+  severidade: "ATENCAO" | "ALERTA" | "CRITICO";
+  esta_ativo: boolean;
+  criado_em: string;
+}
 
 export const alertsService = {
   getRegras: async (): Promise<RegraAlerta[]> => {
-    try {
-      const response = await instance.get<RegraAlerta[]>("/regras-alerta");
-      return response.data;
-    } catch (error) {
-      console.warn(
-        "Backend indisponível. Utilizando dados mockados de fallback.",
-        error,
-      );
-      await delay();
-      return [...regrasEmMemoria];
-    }
+    const response = await instance.get<RegraAlertaBackend[]>("/alertas/regras-alerta");
+
+    return response.data.map((item) => ({
+      id: item.id,
+      nome: item.nome,
+      sensor_id: item.sensor_id,
+      estacao: item.estacao_codigo ? `${item.estacao_codigo} (${item.estacao_nome})` : item.estacao_id,
+      sensorNome: item.sensor_tipo,
+      unidadeMedida: item.sensor_unidade_medida,
+      operador: item.operador,
+      valor_limite: item.valor_limite,
+      severidade: item.severidade,
+      esta_ativo: item.esta_ativo,
+      criado_em: item.criado_em,
+    }));
   },
 
   getEstacoes: async (): Promise<EstacaoOption[]> => {
-    try {
-      const response = await instance.get<EstacaoOption[]>("/estacoes");
-      return response.data;
-    } catch (error) {
-      console.warn(
-        "Backend indisponível. Carregando opções de estações mockadas.",
-        error,
-      );
-      await delay(200);
-      return MOCK_ESTACOES;
-    }
+    // 1. Procura as estações
+    const responseEstacoes = await instance.get<Array<{ id: string; codigo: string; nome: string }>>("/estacoes");
+    const estacoes = responseEstacoes.data;
+
+    // 2. Procura os sensores para cada estação em paralelo
+    const estacoesComSensores = await Promise.all(
+      estacoes.map(async (estacao) => {
+        const nomeFormatado = estacao.codigo && estacao.nome 
+          ? `${estacao.codigo} (${estacao.nome})` 
+          : estacao.nome || estacao.codigo || "Estação sem nome";
+
+        try {
+          const responseSensores = await instance.get<Array<{ id: string; tipo: string; unidade_medida: string }>>(
+            `/estacoes/estacoes/${estacao.id}/sensores`
+          );
+
+          return {
+            id: estacao.id,
+            nome: nomeFormatado,
+            sensores: responseSensores.data.map((sensor) => ({
+              id: sensor.id,
+              nome: sensor.tipo,
+              unidadeMedida: sensor.unidade_medida,
+            })),
+          };
+        } catch (error) {
+          console.error(`[alertsService] Erro ao carregar sensores da estação ${estacao.id}:`, error);
+          return {
+            id: estacao.id,
+            nome: nomeFormatado,
+            sensores: [],
+          };
+        }
+      })
+    );
+
+    return estacoesComSensores;
   },
 
   updateStatus: async (id: string, esta_ativo: boolean): Promise<void> => {
-    try {
-      await instance.patch(`/regras-alerta/${id}/status`, { esta_ativo });
-    } catch (error) {
-      console.warn(
-        "Backend indisponível ao atualizar status. Atualizando em memória.",
-        error,
-      );
-      await delay(300);
-      regrasEmMemoria = regrasEmMemoria.map((item) =>
-        item.id === id ? { ...item, esta_ativo } : item,
-      );
-    }
+    // Mapeia o boolean para a string exata que a API exige ("Ativa" | "Inativa")
+    const status = esta_ativo ? "Ativa" : "Inativa";
+    await instance.patch(`/alertas/regras-alerta/${id}/status`, { status });
   },
 
   createRegra: async (payload: RegraAlertaPayload): Promise<RegraAlerta> => {
-    try {
-      const response = await instance.post<RegraAlerta>(
-        "/regras-alerta",
-        payload,
-      );
-      return response.data;
-    } catch (error) {
-      console.warn(
-        "Backend indisponível ao criar regra. Salvando em memória.",
-        error,
-      );
-      await delay(400);
+    const response = await instance.post<RegraAlertaBackend>(
+      "/alertas/regras-alerta",
+      payload
+    );
 
-      let estacaoNome = "EST-SJC-001";
-      let sensorNome = "Sensor";
-      let unidadeMedida = "";
-
-      MOCK_ESTACOES.forEach((e) => {
-        const foundSensor = e.sensores.find((s) => s.id === payload.sensor_id);
-        if (foundSensor) {
-          estacaoNome = e.nome;
-          sensorNome = foundSensor.nome;
-          unidadeMedida = foundSensor.unidadeMedida;
-        }
-      });
-
-      const novaRegra: RegraAlerta = {
-        id: crypto.randomUUID(),
-        sensor_id: payload.sensor_id,
-        nome: payload.nome,
-        operador: payload.operador,
-        valor_limite: payload.valor_limite,
-        severidade: payload.severidade,
-        esta_ativo: payload.esta_ativo ?? true,
-        estacao: estacaoNome,
-        sensorNome: sensorNome,
-        unidadeMedida: unidadeMedida,
-        criado_em: new Date().toISOString(),
-      };
-
-      regrasEmMemoria = [novaRegra, ...regrasEmMemoria];
-      return novaRegra;
-    }
+    const item = response.data;
+    return {
+      id: item.id,
+      nome: item.nome,
+      sensor_id: item.sensor_id,
+      estacao: item.estacao_codigo || "Estação",
+      sensorNome: item.sensor_tipo || "Sensor",
+      unidadeMedida: item.sensor_unidade_medida || "",
+      operador: item.operador,
+      valor_limite: item.valor_limite,
+      severidade: item.severidade,
+      esta_ativo: item.esta_ativo,
+      criado_em: item.criado_em,
+    };
   },
 };
