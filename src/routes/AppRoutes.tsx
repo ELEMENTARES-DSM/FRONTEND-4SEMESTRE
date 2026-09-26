@@ -6,6 +6,7 @@ import { Alerts } from "../pages/Alerts";
 import { Login } from "../pages/Login/Login";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../AppLayout";
+import { Usuarios } from "../pages/Usuarios/Usuarios";
 
 export function AppRoutes() {
   return (
@@ -14,14 +15,9 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/platform" replace />} />
           <Route path="/platform" element={<Platform />} />
-          <Route path="/" element={<Navigate to="/platform" replace />} />
+          <Route path="/platform/usuarios" element={<Usuarios />} />
+          <Route path="/platform/estacoes/:estacaoId" element={<StationDetails />} />
           <Route path="/alerts" element={<Alerts />} />
-
-          <Route path="/platform" element={<Platform />} />
-          <Route
-            path="/platform/estacoes/:estacaoId"
-            element={<StationDetails />}
-          />
         </Route>
       </Route>
 
