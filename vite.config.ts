@@ -1,7 +1,5 @@
-/// <reference types="vitest" />
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-// import { defineConfig } from "vite";
 import { defineConfig } from "vitest/config";
 
 // https://vite.dev/config/
@@ -18,8 +16,15 @@ export default defineConfig({
     },
   },
   test: {
+    environment: "happy-dom",
     globals: true,
-    environment: "jsdom",
-    setupFiles: "./src/test/setup.ts",
+    isolate: true,
+    setupFiles: ["./src/setupTests.ts", "./src/test/setup.ts"],
+    pool: "threads",
+    css: false,
+    coverage: {
+      enabled: true,
+      reporter: ["text", "html"],
+    },
   },
 });

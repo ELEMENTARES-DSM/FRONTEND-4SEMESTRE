@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { Permission } from '../../../auth/permissions';
 
 
 export interface SidebarNavItem {
@@ -6,6 +7,7 @@ export interface SidebarNavItem {
   label: string;
   icon: ReactNode;
   badge?: string | number;
+  permission?: Permission;
 }
 
 export interface SidebarUserInfo {

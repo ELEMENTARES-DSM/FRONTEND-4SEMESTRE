@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { Stations } from '../pages/Stations'
 import { Platform } from "../pages/platform/Platform";
 import { StationDetails } from "../pages/StationDetail/StationDetail";
 import DevLib from "../pages/DevLib";
@@ -16,7 +17,15 @@ export function AppRoutes() {
           <Route path="/" element={<Navigate to="/platform" replace />} />
           <Route path="/platform" element={<Platform />} />
           <Route path="/platform/usuarios" element={<Usuarios />} />
-          <Route path="/platform/estacoes/:estacaoId" element={<StationDetails />} />
+          <Route
+          path="/platform/territory"
+          element={
+            <ProtectedRoute requiredPermission="territory.access">
+              <Stations />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/platform/estacoes/:estacaoId" element={<StationDetails />} />
           <Route path="/alerts" element={<Alerts />} />
         </Route>
       </Route>
