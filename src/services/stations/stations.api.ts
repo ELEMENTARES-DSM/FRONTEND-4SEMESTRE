@@ -3,9 +3,10 @@ import api from '../../api/instance'
 import type { CreateStationDTO, Station, StationStatus } from '../../types/stations'
 import { StationConflictError, StationForbiddenError } from './stations.errors'
 
-const toNumber = (value: unknown): number => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
+// Formato que o back devolve: NUMERIC chega como string e não existe coluna "ativo".
+type ApiStation = Omit<Station, 'coordenadas' | 'latitude' | 'longitude' | 'ativo'> & {
+  latitude: number | string
+  longitude: number | string
 }
 
 function extractForbiddenMessage(error: unknown): string {
@@ -16,31 +17,25 @@ function extractForbiddenMessage(error: unknown): string {
   return 'Acesso negado. Perfil insuficiente para esta ação.'
 }
 
-const normalizeStation = (
-  station: Partial<Station> & { latitude?: number | string; longitude?: number | string },
-): Station => {
-  const latitude = toNumber(station.latitude ?? station.coordenadas?.latitude)
-  const longitude = toNumber(station.longitude ?? station.coordenadas?.longitude)
+const normalizeStation = (station: ApiStation): Station => {
+  const latitude = Number(station.latitude)
+  const longitude = Number(station.longitude)
 
   return {
     ...station,
-    id: station.id ?? `est-${Date.now()}`,
-    codigo: station.codigo ?? '',
-    nome: station.nome ?? '',
-    municipio: station.municipio ?? 'São José dos Campos',
     coordenadas: { latitude, longitude },
     latitude,
     longitude,
-    status: station.status ?? 'Ativa',
-    ativo: station.ativo ?? (station.status ?? 'Ativa') !== 'Inativa',
-  } as Station
+    // Só a Inativa fica com o switch desligado; Ativa e Com Falha estão em operação.
+    ativo: station.status !== 'Inativa',
+  }
 }
 
 export const stationsApiService = {
   async getStations(): Promise<Station[]> {
     try {
-      const response = await api.get<Station[]>('/estacoes')
-      return (response.data ?? []).map((station) => normalizeStation(station))
+      const response = await api.get<ApiStation[]>('/estacoes')
+      return response.data.map(normalizeStation)
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response?.status === 403) {
         throw new StationForbiddenError(extractForbiddenMessage(error))
@@ -51,21 +46,8 @@ export const stationsApiService = {
 
   async createStation(data: CreateStationDTO): Promise<Station> {
     try {
-      const response = await api.post<Station>('/estacoes', data)
-      const stationPayload = response.data ?? {
-        id: `est-${Date.now()}`,
-        codigo: data.codigo,
-        nome: data.nome,
-        municipio: data.municipio,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        status: data.status ?? 'Ativa',
-        ativo: true,
-        criado_em: new Date().toISOString(),
-        criadoEm: new Date().toISOString(),
-      }
-
-      return normalizeStation(stationPayload)
+      const response = await api.post<ApiStation>('/estacoes', data)
+      return normalizeStation(response.data)
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response?.status === 403) {
         throw new StationForbiddenError(extractForbiddenMessage(error))

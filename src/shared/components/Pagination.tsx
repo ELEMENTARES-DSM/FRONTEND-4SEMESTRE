@@ -20,7 +20,7 @@ export function Pagination({
   total,
   onPage,
   onPageSize,
-  itemLabel = 'usuários',
+  itemLabel = 'itens',
   infoText,
   showPageSize = true,
   className = '',

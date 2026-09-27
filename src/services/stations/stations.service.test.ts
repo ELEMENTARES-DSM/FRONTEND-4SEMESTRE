@@ -9,19 +9,30 @@ import stationsSourceCode from '../../pages/Stations.tsx?raw'
 describe('Stations Feature - Camada de Serviços, Mock e API', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
     resetMockStations()
   })
 
-  it('1. VITE_USE_MOCK=true seleciona a implementação mock', () => {
-    vi.stubEnv('VITE_USE_MOCK', 'true')
-    const service = getStationsService()
-    expect(service).toBe(stationsMockService)
+  it('1. VITE_USE_MOCKS=true seleciona a implementação mock', async () => {
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
+    expect(await getStationsService()).toBe(stationsMockService)
   })
 
-  it('2. VITE_USE_MOCK=false seleciona a implementação da API', () => {
-    vi.stubEnv('VITE_USE_MOCK', 'false')
-    const service = getStationsService()
-    expect(service).toBe(stationsApiService)
+  it('2. VITE_USE_MOCKS=false seleciona a implementação da API', async () => {
+    vi.stubEnv('VITE_USE_MOCKS', 'false')
+    expect(await getStationsService()).toBe(stationsApiService)
+  })
+
+  it('2.1. Fora do modo de desenvolvimento o mock nunca é usado, mesmo com VITE_USE_MOCKS=true', async () => {
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
+    vi.stubEnv('DEV', false)
+    expect(await getStationsService()).toBe(stationsApiService)
+  })
+
+  it('2.2. A flag antiga VITE_USE_MOCK (sem S) não liga o mock', async () => {
+    vi.stubEnv('VITE_USE_MOCKS', 'false')
+    vi.stubEnv('VITE_USE_MOCK', 'true')
+    expect(await getStationsService()).toBe(stationsApiService)
   })
 
   it('3. Mock consegue listar estações', async () => {
@@ -39,13 +50,13 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
       municipio: 'São José dos Campos',
       latitude: -23.1234,
       longitude: -45.5678,
-      status: 'Ativa' as const,
     }
 
     const created = await stationsMockService.createStation(newStationData)
     expect(created.id).toBeDefined()
     expect(created.codigo).toBe('EST-TEST-001')
     expect(created.nome).toBe('Estação de Teste Mock')
+    expect(created.status).toBe('Ativa')
     expect(created.ativo).toBe(true)
 
     // Verifica se foi persistida em memória no mock
@@ -64,7 +75,6 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
           latitude: '-23.1234',
           longitude: '-45.5678',
           status: 'Ativa',
-          ativo: true,
         },
       ],
     })
@@ -74,6 +84,24 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
     expect(stations[0].coordenadas.longitude).toBe(-45.5678)
     expect(typeof stations[0].coordenadas.latitude).toBe('number')
     expect(typeof stations[0].coordenadas.longitude).toBe('number')
+  })
+
+  it('4.2. API não inventa município e deriva o switch do status (Com Falha segue ligado)', async () => {
+    vi.spyOn(api, 'get').mockResolvedValueOnce({
+      data: [
+        { id: 'a', codigo: 'A', nome: 'A', municipio: 'Taubaté', latitude: '0', longitude: '0', status: 'Ativa' },
+        { id: 'b', codigo: 'B', nome: 'B', municipio: 'Taubaté', latitude: '0', longitude: '0', status: 'Inativa' },
+        { id: 'c', codigo: 'C', nome: 'C', municipio: 'Taubaté', latitude: '0', longitude: '0', status: 'Com Falha' },
+      ],
+    })
+
+    const stations = await stationsApiService.getStations()
+    expect(stations.map((s) => s.municipio)).toEqual(['Taubaté', 'Taubaté', 'Taubaté'])
+    expect(stations.map((s) => [s.status, s.ativo])).toEqual([
+      ['Ativa', true],
+      ['Inativa', false],
+      ['Com Falha', true],
+    ])
   })
 
   it('5. Mock consegue alterar status', async () => {
@@ -104,7 +132,6 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
       municipio: 'São José dos Campos',
       latitude: -23.1,
       longitude: -45.1,
-      status: 'Ativa' as const,
     }
 
     await expect(stationsMockService.createStation(duplicateData)).rejects.toThrow(
@@ -135,10 +162,8 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
     const newStationData = {
       codigo: 'EST-2',
       nome: 'E2',
-      municipio: 'São José dos Campos',
       latitude: -23.0,
       longitude: -45.0,
-      status: 'Ativa' as const,
     }
     await stationsApiService.createStation(newStationData)
     expect(postSpy).toHaveBeenCalledWith('/estacoes', newStationData)
@@ -163,10 +188,8 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
     const data = {
       codigo: 'EST-EXISTENTE',
       nome: 'Conflito',
-      municipio: 'SJC',
       latitude: -23.0,
       longitude: -45.0,
-      status: 'Ativa' as const,
     }
 
     await expect(stationsApiService.createStation(data)).rejects.toThrow(
@@ -193,16 +216,14 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
     const postSpy = vi.spyOn(api, 'post')
     const patchSpy = vi.spyOn(api, 'patch')
 
-    vi.stubEnv('VITE_USE_MOCK', 'true')
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
 
     await stationsService.getStations()
     await stationsService.createStation({
       codigo: 'EST-MOCK-NO-HTTP',
       nome: 'Sem HTTP',
-      municipio: 'SJC',
       latitude: -23.0,
       longitude: -45.0,
-      status: 'Ativa',
     })
     await stationsService.updateStationStatus('est-001', false, 'Inativa')
 

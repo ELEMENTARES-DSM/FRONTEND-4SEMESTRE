@@ -1,7 +1,72 @@
+import type { ReactElement } from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { Stations, type Station } from './Stations'
 import api from '../api/instance'
 import { AuthContext } from '../auth/AuthContext'
+
+type Papel = 'ADMINISTRADOR' | 'GESTOR_PUBLICO' | 'PESQUISADOR'
+
+// O perfil vem sempre do AuthContext, como no app (sem usuário de teste no localStorage).
+function renderAs(
+  papel: Papel,
+  ui: ReactElement,
+  municipio: string | null = papel === 'GESTOR_PUBLICO' ? 'São José dos Campos' : null,
+) {
+  return render(
+    <AuthContext.Provider
+      value={{
+        token: 'token-teste',
+        usuario: { id: `user-${papel}`, nome: `Usuário ${papel}`, papel, municipio },
+        login: vi.fn(),
+        logout: vi.fn(),
+      }}
+    >
+      {ui}
+    </AuthContext.Provider>,
+  )
+}
+
+function preencherCadastro({
+  codigo = 'EST-SJC-099',
+  nome = 'Localidade Qualquer',
+  latitude = '-23.1534',
+  longitude = '-45.7922',
+  municipio,
+}: {
+  codigo?: string
+  nome?: string
+  latitude?: string
+  longitude?: string
+  municipio?: string
+}) {
+  fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+  fireEvent.change(screen.getByLabelText(/Código da Estação/i), { target: { value: codigo } })
+  fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), { target: { value: nome } })
+  if (municipio !== undefined) {
+    fireEvent.change(screen.getByLabelText(/Município/i), { target: { value: municipio } })
+  }
+  fireEvent.change(screen.getByLabelText(/Latitude/i), { target: { value: latitude } })
+  fireEvent.change(screen.getByLabelText(/Longitude/i), { target: { value: longitude } })
+}
+
+const salvar = () => fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+
+// Resposta no formato real do back: NUMERIC como string e sem campo "ativo".
+const respostaDoBack = (extra: Record<string, unknown> = {}) => ({
+  data: {
+    id: 'est-new-001',
+    codigo: 'EST-SJC-099',
+    nome: 'Localidade Qualquer',
+    municipio: 'São José dos Campos',
+    latitude: '-23.153400',
+    longitude: '-45.792200',
+    status: 'Ativa',
+    nivel_bateria: null,
+    ultimo_ping: null,
+    criado_em: '2026-09-26T12:00:00Z',
+    ...extra,
+  },
+})
 
 const MOCK_STATIONS: Station[] = [
   {
@@ -33,165 +98,77 @@ const MOCK_STATIONS: Station[] = [
   },
 ]
 
+const ESTACAO_COM_FALHA: Station = {
+  id: 'est-009',
+  codigo: 'EST-FALHA-01',
+  nome: 'Estação com falha',
+  municipio: 'São José dos Campos',
+  coordenadas: { latitude: -23.21, longitude: -45.85 },
+  status: 'Com Falha',
+  ativo: true,
+}
+
+beforeEach(() => {
+  localStorage.clear()
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+  vi.stubEnv('VITE_USE_MOCKS', 'false')
+})
+
 describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    localStorage.setItem('userRole', 'GESTOR_PUBLICO')
-    localStorage.setItem('userMunicipio', 'São José dos Campos')
-    vi.restoreAllMocks()
-    vi.stubEnv('VITE_USE_MOCK', 'false')
-  })
-
   it('Cenário 1: Cadastro de estação com sucesso pelo Gestor Público', async () => {
-    // Dado que o usuário está autenticado como "GESTOR_PUBLICO" do município "São José dos Campos"
-    localStorage.setItem('userRole', 'GESTOR_PUBLICO')
-    localStorage.setItem('userMunicipio', 'São José dos Campos')
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValueOnce(respostaDoBack())
 
-    const postSpy = vi.spyOn(api, 'post').mockResolvedValueOnce({
-      data: {
-        id: 'est-new-001',
-        codigo: 'EST-SJC-001',
-        nome: 'Estação Parque Tecnológico',
-        municipio: 'São José dos Campos',
-        coordenadas: { latitude: -23.1534, longitude: -45.7922 },
-        status: 'Ativa',
-        ativo: true,
-      },
-    })
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ latitude: '-23.153400', longitude: '-45.792200' })
+    salvar()
 
-    // Renderiza a página inicialmente sem a estação a ser cadastrada
-    render(<Stations initialStations={[]} />)
-
-    // Abre o formulário de cadastro
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    // Quando preenche o código "EST-SJC-001" e o nome "Estação Parque Tecnológico"
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-SJC-001' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Estação Parque Tecnológico' },
-    })
-
-    // E informa a latitude "-23.153400" e a longitude "-45.792200"
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '-23.153400' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.792200' },
-    })
-
-    // E submete o formulário de cadastro
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
-
-    // Então o sistema deve registrar a estação vinculada ao município "São José dos Campos"
     await waitFor(() => {
-      expect(postSpy).toHaveBeenCalledWith(
-        '/estacoes',
-        expect.objectContaining({
-          codigo: 'EST-SJC-001',
-          nome: 'Estação Parque Tecnológico',
-          municipio: 'São José dos Campos',
-          latitude: -23.1534,
-          longitude: -45.7922,
-          status: 'Ativa',
-        }),
-      )
+      expect(postSpy).toHaveBeenCalledWith('/estacoes', {
+        codigo: 'EST-SJC-099',
+        nome: 'Localidade Qualquer',
+        latitude: -23.1534,
+        longitude: -45.7922,
+      })
     })
 
-    // E a interface deve exibir a mensagem "Estação meteorológica cadastrada com sucesso"
     expect(
       await screen.findByText('Estação meteorológica cadastrada com sucesso'),
     ).toBeInTheDocument()
 
-    // E o status operacional deve ser persistido como "Ativa" na listagem
-    const row = screen.getByRole('row', { name: /EST-SJC-001/i })
+    // O status "Ativa" vem do back, não do formulário
+    const row = screen.getByRole('row', { name: /EST-SJC-099/i })
     expect(row).toHaveTextContent('Ativa')
-    expect(row).toHaveTextContent('Estação Parque Tecnológico')
+    expect(row).toHaveTextContent('-23.1534, -45.7922')
   })
 
   it('Cenário 2: Tentativa de cadastro com código identificador já existente', async () => {
-    // Dado que já existe uma estação com o código identificador "EST-SJC-001" cadastrada no sistema
-    const existingStation: Station = {
-      id: 'est-001',
-      codigo: 'EST-SJC-001',
-      nome: 'São José dos Campos - Centro',
-      municipio: 'São José dos Campos',
-      coordenadas: { latitude: -23.1791, longitude: -45.8872 },
-      status: 'Ativa',
-      ativo: true,
-    }
-
     const postSpy = vi.spyOn(api, 'post').mockRejectedValueOnce({
-      response: {
-        status: 409,
-        data: { message: 'Conflict' },
-      },
+      response: { status: 409, data: { message: 'Conflict' } },
       status: 409,
     })
 
-    render(<Stations initialStations={[existingStation]} />)
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[MOCK_STATIONS[0]]} />)
+    preencherCadastro({ codigo: 'EST-SJC-001' })
+    salvar()
 
-    // Quando o gestor tentar cadastrar uma nova estação utilizando o mesmo código "EST-SJC-001"
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-SJC-001' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Nova Unidade Parque Tecnológico' },
-    })
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '-23.1534' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.7922' },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
-
-    // Então o backend deve recursar a requisição com o código HTTP 409 (Conflict)
     await waitFor(() => {
       expect(postSpy).toHaveBeenCalled()
     })
-
-    // E a aplicação deve exibir o alerta "Identificador de estação já cadastrado no sistema"
     expect(
       await screen.findByText('Identificador de estação já cadastrado no sistema'),
     ).toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 
-  it('Cenário 3: Tentativa de cadastro com coordenadas geográficas inválidas (latitude > 90)', async () => {
+  it('Cenário 3: Tentativa de cadastro com coordenadas geográficas inválidas (latitude > 90)', () => {
     const postSpy = vi.spyOn(api, 'post')
 
-    render(<Stations initialStations={[]} />)
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ latitude: '92.500000' })
+    salvar()
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    // Dado que o gestor está preenchendo as coordenadas da estação
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-SJC-099' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Localidade Qualquer' },
-    })
-
-    // Quando informa a latitude "92.500000" (superior a 90 graus)
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '92.500000' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.792200' },
-    })
-
-    // E tenta submeter o formulário
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
-
-    // Então o sistema deve impedir o envio antes da persistência
     expect(postSpy).not.toHaveBeenCalled()
-
-    // E deve exibir a mensagem de validação "Coordenadas geográficas fora dos limites válidos"
     expect(
       screen.getByText('Coordenadas geográficas fora dos limites válidos'),
     ).toBeInTheDocument()
@@ -201,30 +178,14 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
   it('Cenário 4: Desativação lógica de estação meteorológica', async () => {
     const patchSpy = vi.spyOn(api, 'patch').mockResolvedValueOnce({ data: {} })
 
-    // Dado que uma estação com status "Ativa" precisa ser recolhida para calibração
-    const stationAtiva: Station = {
-      id: 'est-001',
-      codigo: 'EST-SJC-001',
-      nome: 'São José dos Campos - Centro',
-      municipio: 'São José dos Campos',
-      coordenadas: { latitude: -23.1791, longitude: -45.8872 },
-      status: 'Ativa',
-      ativo: true,
-    }
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[MOCK_STATIONS[0]]} />)
 
-    render(<Stations initialStations={[stationAtiva]} />)
+    expect(screen.getByRole('row', { name: /EST-SJC-001/i })).toHaveTextContent('Ativa')
 
-    // Valida status inicial ativo na tabela
-    const rowBefore = screen.getByRole('row', { name: /EST-SJC-001/i })
-    expect(rowBefore).toHaveTextContent('Ativa')
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Alternar status da estação EST-SJC-001/i }),
+    )
 
-    // Quando o gestor acionar o comando de desativação na listagem
-    const toggle = screen.getByRole('switch', {
-      name: /Alternar status da estação EST-SJC-001/i,
-    })
-    fireEvent.click(toggle)
-
-    // Então o status da estação deve ser atualizado para "Inativa" no backend / banco
     await waitFor(() => {
       expect(patchSpy).toHaveBeenCalledWith('/estacoes/est-001/status', {
         ativo: false,
@@ -232,11 +193,8 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
       })
     })
 
-    // E a estação não deve ser removida fisicamente da tabela
+    // A estação não é removida da tabela e o badge fica cinza
     const rowAfter = await screen.findByRole('row', { name: /EST-SJC-001/i })
-    expect(rowAfter).toBeInTheDocument()
-
-    // E a interface deve atualizar o badge para a cor cinza com o rótulo "Inativa"
     expect(rowAfter).toHaveTextContent('Inativa')
     const badge = rowAfter.querySelector('.bg-neutral\\/40')
     expect(badge).toBeInTheDocument()
@@ -244,17 +202,94 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
   })
 })
 
-describe('Componente Stations - Funcionalidades adicionais', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    localStorage.setItem('userRole', 'GESTOR_PUBLICO')
-    localStorage.setItem('userMunicipio', 'São José dos Campos')
-    vi.restoreAllMocks()
-    vi.stubEnv('VITE_USE_MOCK', 'false')
+describe('Validação de coordenadas no cliente (RN-03)', () => {
+  it('bloqueia longitude fora de [-180, 180]', () => {
+    const postSpy = vi.spyOn(api, 'post')
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ longitude: '-180.5' })
+    salvar()
+
+    expect(postSpy).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Coordenadas geográficas fora dos limites válidos'),
+    ).toBeInTheDocument()
   })
 
+  it.each([
+    ['90.0001', '0'],
+    ['-90.0001', '0'],
+    ['0', '180.0001'],
+    ['0', '-180.0001'],
+  ])('bloqueia o valor logo além do limite (lat %s, lon %s)', (latitude, longitude) => {
+    const postSpy = vi.spyOn(api, 'post')
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ latitude, longitude })
+    salvar()
+
+    expect(postSpy).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['90', '180', 90, 180],
+    ['-90', '-180', -90, -180],
+  ])('aceita os limites exatos (lat %s, lon %s)', async (latitude, longitude, lat, lon) => {
+    const postSpy = vi
+      .spyOn(api, 'post')
+      .mockResolvedValueOnce(respostaDoBack({ latitude: String(lat), longitude: String(lon) }))
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ latitude, longitude })
+    salvar()
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith(
+        '/estacoes',
+        expect.objectContaining({ latitude: lat, longitude: lon }),
+      )
+    })
+  })
+})
+
+describe('Status "Com Falha" (valores do back: Ativa, Inativa, Com Falha)', () => {
+  it('exibe badge de alerta, conta no cabeçalho e tem filtro próprio', () => {
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[...MOCK_STATIONS, ESTACAO_COM_FALHA]} />)
+
+    const row = screen.getByRole('row', { name: /EST-FALHA-01/i })
+    const badge = row.querySelector('.bg-warning\\/15')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveTextContent('Com Falha')
+
+    expect(screen.getByText(/4 estações cadastradas · 2 ativas · 1 com falha/i)).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: /Manutenção/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: /Instalação/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: /Com Falha/i }))
+    expect(screen.getByText('EST-FALHA-01')).toBeInTheDocument()
+    expect(screen.queryByText('EST-SJC-001')).not.toBeInTheDocument()
+    expect(screen.queryByText('EST-CAC-001')).not.toBeInTheDocument()
+  })
+
+  it('não permite alternar o switch de uma estação Com Falha (o status não é apagado)', () => {
+    const patchSpy = vi.spyOn(api, 'patch')
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[ESTACAO_COM_FALHA]} />)
+
+    const toggle = screen.getByRole('switch', {
+      name: /Alternar status da estação EST-FALHA-01/i,
+    })
+    expect(toggle).toBeDisabled()
+    fireEvent.click(toggle)
+
+    expect(patchSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('row', { name: /EST-FALHA-01/i })).toHaveTextContent('Com Falha')
+  })
+})
+
+describe('Componente Stations - Funcionalidades adicionais', () => {
   it('renderiza o cabeçalho, contadores e lista inicial de estações', () => {
-    render(<Stations initialStations={MOCK_STATIONS} />)
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={MOCK_STATIONS} />)
 
     expect(
       screen.getByRole('heading', { name: /Inventário de Estações/i }),
@@ -265,25 +300,28 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
     expect(screen.getByText('EST-CAC-001')).toBeInTheDocument()
   })
 
-  it('filtra as estações por status utilizando o componente Filter', () => {
-    render(<Stations initialStations={MOCK_STATIONS} />)
+  it('usa o singular quando há uma estação', () => {
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[MOCK_STATIONS[0]]} />)
 
-    // Clica no filtro "Inativas"
+    expect(screen.getByText('1 estação cadastrada · 1 ativa')).toBeInTheDocument()
+  })
+
+  it('filtra as estações por status utilizando o componente Filter', () => {
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={MOCK_STATIONS} />)
+
     fireEvent.click(screen.getByRole('radio', { name: /Inativas/i }))
 
-    // Deve exibir apenas Caçapava e esconder as ativas
     expect(screen.getByText('EST-CAC-001')).toBeInTheDocument()
     expect(screen.queryByText('EST-SJC-001')).not.toBeInTheDocument()
     expect(screen.queryByText('EST-SJC-002')).not.toBeInTheDocument()
   })
 
   it('filtra as estações por termo de busca', () => {
-    render(<Stations initialStations={MOCK_STATIONS} />)
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={MOCK_STATIONS} />)
 
-    const searchInput = screen.getByPlaceholderText(
-      /Buscar por código ou localidade.../i,
-    )
-    fireEvent.change(searchInput, { target: { value: 'Satélite' } })
+    fireEvent.change(screen.getByPlaceholderText(/Buscar por código ou localidade.../i), {
+      target: { value: 'Satélite' },
+    })
 
     expect(screen.getByText('EST-SJC-002')).toBeInTheDocument()
     expect(screen.queryByText('EST-SJC-001')).not.toBeInTheDocument()
@@ -291,40 +329,26 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
   })
 
   it('exibe modal de detalhes ao clicar no código da estação e fecha ao clicar em Fechar', () => {
-    render(<Stations initialStations={MOCK_STATIONS} />)
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={MOCK_STATIONS} />)
 
-    // Clica no código da estação
     fireEvent.click(screen.getByRole('button', { name: 'EST-SJC-001' }))
 
-    // O modal com título e detalhes deve ser exibido
     const dialog = screen.getByRole('dialog')
-    expect(dialog).toBeInTheDocument()
     expect(
-      within(dialog).getByRole('heading', {
-        name: 'Detalhes da Estação - EST-SJC-001',
-      }),
+      within(dialog).getByRole('heading', { name: 'Detalhes da Estação - EST-SJC-001' }),
     ).toBeInTheDocument()
-    expect(
-      within(dialog).getByText('São José dos Campos - Centro'),
-    ).toBeInTheDocument()
+    expect(within(dialog).getByText('São José dos Campos - Centro')).toBeInTheDocument()
     expect(within(dialog).getByText('São José dos Campos')).toBeInTheDocument()
 
-    // Clica em Fechar
     fireEvent.click(within(dialog).getByText('Fechar'))
-
-    // Modal deve ser encerrado
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('valida campos obrigatórios não preenchidos no formulário', () => {
-    render(<Stations initialStations={[]} />)
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
 
     fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    // Submete formulário com campos obrigatórios vazios
-    const saveButton = screen.getByRole('button', { name: /Salvar Estação/i })
-    const form = saveButton.closest('form')!
-    fireEvent.submit(form)
+    fireEvent.submit(screen.getByRole('button', { name: /Salvar Estação/i }).closest('form')!)
 
     expect(
       screen.getByText('Por favor, preencha todos os campos obrigatórios.'),
@@ -332,7 +356,7 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
   })
 
   it('fecha o modal de cadastro ao clicar em Cancelar', () => {
-    render(<Stations initialStations={[]} />)
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
 
     fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
     expect(screen.getByRole('heading', { name: 'Nova Estação' })).toBeInTheDocument()
@@ -341,49 +365,45 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
     expect(screen.queryByRole('heading', { name: 'Nova Estação' })).not.toBeInTheDocument()
   })
 
-  it('permite cadastrar e listar estação quando VITE_USE_MOCK=true sem acionar api', async () => {
-    vi.stubEnv('VITE_USE_MOCK', 'true')
+  it('permite cadastrar e listar estação quando VITE_USE_MOCKS=true sem acionar api', async () => {
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
     const postSpy = vi.spyOn(api, 'post')
 
-    render(<Stations initialStations={[]} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-MOCK-TEST' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Estação Mock' },
-    })
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '-23.1234' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.5678' },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ codigo: 'EST-MOCK-TEST', nome: 'Estação Mock' })
+    salvar()
 
     expect(
       await screen.findByText('Estação meteorológica cadastrada com sucesso'),
     ).toBeInTheDocument()
-
     expect(postSpy).not.toHaveBeenCalled()
     expect(screen.getByText('EST-MOCK-TEST')).toBeInTheDocument()
+  })
+
+  it('exibe o erro de carga com "Tentar novamente" em vez de lista vazia', async () => {
+    const getSpy = vi
+      .spyOn(api, 'get')
+      .mockRejectedValueOnce(new Error('Request failed with status code 500'))
+      .mockResolvedValueOnce({
+        data: [{ ...respostaDoBack().data, id: 'est-001', codigo: 'EST-SJC-001' }],
+      })
+
+    renderAs('GESTOR_PUBLICO', <Stations />)
+
+    expect(await screen.findByText('Não foi possível carregar as estações.')).toBeInTheDocument()
+    expect(screen.queryByText('Nenhuma estação cadastrada.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Tentar novamente/i }))
+
+    expect(await screen.findByText('EST-SJC-001')).toBeInTheDocument()
+    expect(screen.queryByText('Não foi possível carregar as estações.')).not.toBeInTheDocument()
+    expect(getSpy).toHaveBeenCalledTimes(2)
   })
 })
 
 describe('Controle de Acesso e Autorização - Componente Stations', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    vi.restoreAllMocks()
-    vi.stubEnv('VITE_USE_MOCK', 'false')
-  })
-
   it('permite que ADMINISTRADOR visualize lista de estações, botão de criação e Toggle', () => {
-    localStorage.setItem('userRole', 'ADMINISTRADOR')
-
-    render(<Stations initialStations={MOCK_STATIONS} />)
+    renderAs('ADMINISTRADOR', <Stations initialStations={MOCK_STATIONS} />)
 
     expect(screen.getByRole('heading', { name: /Inventário de Estações/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /\+ Nova Estação/i })).toBeInTheDocument()
@@ -395,9 +415,7 @@ describe('Controle de Acesso e Autorização - Componente Stations', () => {
   })
 
   it('bloqueia PESQUISADOR: não exibe lista de estações e renderiza mensagem de Acesso Negado', () => {
-    localStorage.setItem('userRole', 'PESQUISADOR')
-
-    render(<Stations initialStations={MOCK_STATIONS} />)
+    renderAs('PESQUISADOR', <Stations initialStations={MOCK_STATIONS} />)
 
     expect(screen.getByRole('alert', { name: /Acesso negado/i })).toBeInTheDocument()
     expect(
@@ -410,48 +428,35 @@ describe('Controle de Acesso e Autorização - Componente Stations', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('impede chamada GET /estacoes quando usuário é PESQUISADOR sem permissão de visualização', async () => {
-    localStorage.setItem('userRole', 'PESQUISADOR')
+  it('impede chamada GET /estacoes quando usuário é PESQUISADOR sem permissão de visualização', () => {
     const getSpy = vi.spyOn(api, 'get')
 
-    render(<Stations />)
+    renderAs('PESQUISADOR', <Stations />)
 
     expect(getSpy).not.toHaveBeenCalled()
     expect(screen.getByRole('alert', { name: /Acesso negado/i })).toBeInTheDocument()
   })
 
-  it('exibe mensagem apropriada quando a API retorna erro HTTP 403 com mensagem de perfil insuficiente', async () => {
+  it('não trata como autorizado um papel gravado solto no localStorage', () => {
     localStorage.setItem('userRole', 'ADMINISTRADOR')
-    localStorage.setItem('userMunicipio', 'São José dos Campos')
 
+    render(<Stations initialStations={MOCK_STATIONS} />)
+
+    expect(screen.getByRole('alert', { name: /Acesso negado/i })).toBeInTheDocument()
+  })
+
+  it('exibe mensagem apropriada quando a API retorna erro HTTP 403 com mensagem de perfil insuficiente', async () => {
     vi.spyOn(api, 'post').mockRejectedValueOnce({
       isAxiosError: true,
       response: {
         status: 403,
-        data: {
-          erro: 'Acesso negado. Perfil insuficiente para esta ação.',
-        },
+        data: { erro: 'Acesso negado. Perfil insuficiente para esta ação.' },
       },
     })
 
-    render(<Stations initialStations={[]} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-SJC-999' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Localidade Teste 403' },
-    })
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '-23.1234' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.5678' },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ codigo: 'EST-SJC-999' })
+    salvar()
 
     expect(
       await screen.findByText('Acesso negado. Perfil insuficiente para esta ação.'),
@@ -459,24 +464,19 @@ describe('Controle de Acesso e Autorização - Componente Stations', () => {
   })
 
   it('exibe mensagem apropriada quando a API retorna erro HTTP 403 ao alternar status da estação', async () => {
-    localStorage.setItem('userRole', 'ADMINISTRADOR')
-
     vi.spyOn(api, 'patch').mockRejectedValueOnce({
       isAxiosError: true,
       response: {
         status: 403,
-        data: {
-          erro: 'Acesso negado. Perfil insuficiente para esta ação.',
-        },
+        data: { erro: 'Acesso negado. Perfil insuficiente para esta ação.' },
       },
     })
 
-    render(<Stations initialStations={[MOCK_STATIONS[0]]} />)
+    renderAs('ADMINISTRADOR', <Stations initialStations={[MOCK_STATIONS[0]]} />)
 
-    const toggle = screen.getByRole('switch', {
-      name: /Alternar status da estação EST-SJC-001/i,
-    })
-    fireEvent.click(toggle)
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Alternar status da estação EST-SJC-001/i }),
+    )
 
     expect(
       await screen.findByText('Acesso negado. Perfil insuficiente para esta ação.'),
@@ -484,178 +484,83 @@ describe('Controle de Acesso e Autorização - Componente Stations', () => {
   })
 })
 
-describe('Regra de Negócio RN-01 - Extração oficial do município do usuário autenticado', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    vi.restoreAllMocks()
-    vi.stubEnv('VITE_USE_MOCK', 'false')
-  })
+describe('US-03 - Município da estação', () => {
+  it('GESTOR_PUBLICO não envia município: o back usa o do JWT', async () => {
+    const postSpy = vi
+      .spyOn(api, 'post')
+      .mockResolvedValueOnce(respostaDoBack({ codigo: 'EST-TAU-001', municipio: 'Taubaté' }))
 
-  it('extrai e vincula automaticamente o município oficial do usuário via AuthContext (Taubaté) ao criar estação', async () => {
-    const postSpy = vi.spyOn(api, 'post').mockResolvedValueOnce({
-      data: {
-        id: 'est-tau-001',
-        codigo: 'EST-TAU-001',
-        nome: 'Taubaté - Distrito Industrial',
-        municipio: 'Taubaté',
-        coordenadas: { latitude: -23.025, longitude: -45.555 },
-        status: 'Ativa',
-        ativo: true,
-      },
-    })
-
-    render(
-      <AuthContext.Provider
-        value={{
-          token: 'mock-valid-token',
-          usuario: {
-            id: 'user-tau-1',
-            nome: 'Gestor Taubaté',
-            papel: 'GESTOR_PUBLICO',
-            municipio: 'Taubaté',
-          },
-          login: vi.fn(),
-          logout: vi.fn(),
-        }}
-      >
-        <Stations initialStations={[]} />
-      </AuthContext.Provider>,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-TAU-001' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Taubaté - Distrito Industrial' },
-    })
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '-23.025' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.555' },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />, 'Taubaté')
+    preencherCadastro({ codigo: 'EST-TAU-001' })
+    salvar()
 
     await waitFor(() => {
-      expect(postSpy).toHaveBeenCalledWith(
-        '/estacoes',
-        expect.objectContaining({
-          codigo: 'EST-TAU-001',
-          nome: 'Taubaté - Distrito Industrial',
-          municipio: 'Taubaté',
-          latitude: -23.025,
-          longitude: -45.555,
-          status: 'Ativa',
-        }),
-      )
+      expect(postSpy).toHaveBeenCalled()
     })
-
+    const corpo = postSpy.mock.calls[0][1]
+    expect(corpo).not.toHaveProperty('municipio')
+    expect(corpo).not.toHaveProperty('status')
     expect(
       await screen.findByText('Estação meteorológica cadastrada com sucesso'),
     ).toBeInTheDocument()
   })
 
-  it('bloqueia o cadastro e exibe notificação de erro se usuario.municipio for nulo no AuthContext', async () => {
-    const postSpy = vi.spyOn(api, 'post')
-
-    render(
-      <AuthContext.Provider
-        value={{
-          token: 'mock-valid-token',
-          usuario: {
-            id: 'user-sem-municipio',
-            nome: 'Gestor Sem Município',
-            papel: 'GESTOR_PUBLICO',
-            municipio: null,
-          },
-          login: vi.fn(),
-          logout: vi.fn(),
-        }}
-      >
-        <Stations initialStations={[]} />
-      </AuthContext.Provider>,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-SEM-001' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Estação Teste' },
-    })
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '-23.123' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.456' },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
-
-    expect(postSpy).not.toHaveBeenCalled()
-    expect(
-      await screen.findByText('Município do usuário não identificado para vincular à estação.'),
-    ).toBeInTheDocument()
-  })
-
-  it('bloqueia o cadastro e exibe notificação de erro se usuario.municipio for vazio/espaços', async () => {
-    const postSpy = vi.spyOn(api, 'post')
-
-    render(
-      <AuthContext.Provider
-        value={{
-          token: 'mock-valid-token',
-          usuario: {
-            id: 'user-municipio-vazio',
-            nome: 'Gestor Município Vazio',
-            papel: 'GESTOR_PUBLICO',
-            municipio: '   ',
-          },
-          login: vi.fn(),
-          logout: vi.fn(),
-        }}
-      >
-        <Stations initialStations={[]} />
-      </AuthContext.Provider>,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
-
-    fireEvent.change(screen.getByLabelText(/Código da Estação/i), {
-      target: { value: 'EST-EMPTY-001' },
-    })
-    fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), {
-      target: { value: 'Estação Teste Vazio' },
-    })
-    fireEvent.change(screen.getByLabelText(/Latitude/i), {
-      target: { value: '-23.123' },
-    })
-    fireEvent.change(screen.getByLabelText(/Longitude/i), {
-      target: { value: '-45.456' },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Estação/i }))
-
-    expect(postSpy).not.toHaveBeenCalled()
-    expect(
-      await screen.findByText('Município do usuário não identificado para vincular à estação.'),
-    ).toBeInTheDocument()
-  })
-
-  it('não disponibiliza nenhum campo editável de município no formulário de criação (RN-01)', () => {
-    localStorage.setItem('userRole', 'GESTOR_PUBLICO')
-    localStorage.setItem('userMunicipio', 'São José dos Campos')
-
-    render(<Stations initialStations={[]} />)
+  it('não disponibiliza campo de município para GESTOR_PUBLICO', () => {
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
 
     fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
 
     expect(screen.queryByLabelText(/município/i)).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/município/i)).not.toBeInTheDocument()
   })
-})
 
+  it.each([
+    ['nulo', null],
+    ['vazio/espaços', '   '],
+  ])('bloqueia o cadastro do GESTOR_PUBLICO com município %s na sessão', async (_caso, municipio) => {
+    const postSpy = vi.spyOn(api, 'post')
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />, municipio)
+    preencherCadastro({})
+    salvar()
+
+    expect(postSpy).not.toHaveBeenCalled()
+    expect(
+      await screen.findByText('Município do usuário não identificado para vincular à estação.'),
+    ).toBeInTheDocument()
+  })
+
+  it('ADMINISTRADOR (sem município no JWT) informa o município e o envia no POST', async () => {
+    const postSpy = vi
+      .spyOn(api, 'post')
+      .mockResolvedValueOnce(respostaDoBack({ codigo: 'EST-JAC-001', municipio: 'Jacareí' }))
+
+    renderAs('ADMINISTRADOR', <Stations initialStations={[]} />)
+    preencherCadastro({ codigo: 'EST-JAC-001', municipio: '  Jacareí ' })
+    salvar()
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith('/estacoes', {
+        codigo: 'EST-JAC-001',
+        nome: 'Localidade Qualquer',
+        municipio: 'Jacareí',
+        latitude: -23.1534,
+        longitude: -45.7922,
+      })
+    })
+    expect(
+      await screen.findByText('Estação meteorológica cadastrada com sucesso'),
+    ).toBeInTheDocument()
+  })
+
+  it('ADMINISTRADOR sem município preenchido não envia o POST', () => {
+    const postSpy = vi.spyOn(api, 'post')
+
+    renderAs('ADMINISTRADOR', <Stations initialStations={[]} />)
+    preencherCadastro({})
+    fireEvent.submit(screen.getByRole('button', { name: /Salvar Estação/i }).closest('form')!)
+
+    expect(postSpy).not.toHaveBeenCalled()
+    expect(screen.getByText('Informe o município da estação.')).toBeInTheDocument()
+  })
+})

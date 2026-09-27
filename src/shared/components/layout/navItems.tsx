@@ -29,6 +29,7 @@ export const NAV: SidebarNavItem[] = [
   {
     path: "/platform/territory",
     label: "Estações",
+    permission: "territory.access",
     icon: (
       <svg
         width="18"

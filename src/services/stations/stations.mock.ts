@@ -80,8 +80,8 @@ export const INITIAL_STATIONS: Station[] = [
     codigo: 'EST-GUA-001',
     nome: 'Guaratinguetá - Pedregulho',
     coordenadas: { latitude: -22.8163, longitude: -45.1925 },
-    status: 'Manutenção',
-    ativo: false,
+    status: 'Com Falha',
+    ativo: true,
     nivel_bateria: 28,
     ultimo_ping: '2026-03-23T09:15:00Z',
     criado_em: '2026-02-18T10:00:00Z',
@@ -92,7 +92,7 @@ export const INITIAL_STATIONS: Station[] = [
     codigo: 'EST-CPJ-001',
     nome: 'Campos do Jordão - Capivari',
     coordenadas: { latitude: -22.7394, longitude: -45.5913 },
-    status: 'Em instalação',
+    status: 'Inativa',
     ativo: false,
     nivel_bateria: null,
     ultimo_ping: null,
@@ -122,7 +122,8 @@ export const stationsMockService = {
       throw new StationConflictError()
     }
 
-    const status: StationStatus = (data.status as StationStatus) ?? 'Ativa'
+    // Igual ao back: toda estação nasce Ativa.
+    const status: StationStatus = 'Ativa'
     const now = new Date().toISOString()
     const newStation: Station = {
       id: `est-${Date.now()}`,
@@ -133,9 +134,9 @@ export const stationsMockService = {
       latitude: data.latitude,
       longitude: data.longitude,
       status,
-      ativo: status !== 'Inativa',
-      nivel_bateria: data.nivel_bateria ?? null,
-      ultimo_ping: data.ultimo_ping ?? null,
+      ativo: true,
+      nivel_bateria: null,
+      ultimo_ping: null,
       criado_em: now,
       criadoEm: now,
     }

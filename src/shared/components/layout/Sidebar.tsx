@@ -8,6 +8,7 @@ import {
   type SidebarUserInfo,
 } from './layoutConstants';
 import { NAV } from './navItems';
+import { useAuthorization } from '../../../auth/useAuthorization';
 
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
@@ -59,6 +60,8 @@ export function Sidebar({
 }: SidebarProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { hasPermission } = useAuthorization();
+  const visibleItems = items.filter((item) => !item.permission || hasPermission(item.permission));
 
   const isItemActive = (item: SidebarNavItem) => {
     if (item.path === '/platform') {
@@ -125,7 +128,7 @@ export function Sidebar({
           className="flex-1 px-3 py-4 space-y-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           role="navigation"
         >
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const active = isItemActive(item);
             return (
               <button

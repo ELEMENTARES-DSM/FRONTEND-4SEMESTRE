@@ -47,15 +47,10 @@ export function StatusBadge({ status }: { status: StationStatus }) {
       dotClass: 'bg-muted/70',
       label: 'Inativa',
     },
-    Manutenção: {
+    'Com Falha': {
       badgeClass: 'bg-warning/15 text-warning border-warning/30',
       dotClass: 'bg-warning',
-      label: 'Manutenção',
-    },
-    'Em instalação': {
-      badgeClass: 'bg-primary/15 text-primary border-primary/30',
-      dotClass: 'bg-primary',
-      label: 'Em instalação',
+      label: 'Com Falha',
     },
   }
 
@@ -88,6 +83,8 @@ function formatDateTime(value?: string | Date | null): string {
   }).format(date)
 }
 
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
+
 function getCoordinateValue(value: unknown): number {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 0
@@ -119,11 +116,14 @@ export function BatteryBadge({ level }: { level?: number | null }) {
 }
 
 export function Stations({ initialStations }: StationsProps = {}) {
-  const { usuario, canViewStations, canCreateStation, canToggleStation } = useAuthorization()
+  const { usuario, hasRole, canViewStations, canCreateStation, canToggleStation } =
+    useAuthorization()
+  const isAdmin = hasRole('ADMINISTRADOR')
 
   const {
     stations,
     loading,
+    error,
     togglingId,
     refresh,
     createStation,
@@ -142,6 +142,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
 
   const [formCodigo, setFormCodigo] = useState('')
   const [formNome, setFormNome] = useState('')
+  const [formMunicipio, setFormMunicipio] = useState('')
   const [formLat, setFormLat] = useState('')
   const [formLon, setFormLon] = useState('')
 
@@ -171,24 +172,13 @@ export function Stations({ initialStations }: StationsProps = {}) {
   }, [refresh, notify])
 
   const counts = useMemo(() => {
-    let ativas = 0
-    let inativas = 0
-    let manutencao = 0
-    let instalacao = 0
-
-    stations.forEach((s) => {
-      if (s.status === 'Ativa') ativas += 1
-      else if (s.status === 'Inativa') inativas += 1
-      else if (s.status === 'Manutenção') manutencao += 1
-      else if (s.status === 'Em instalação') instalacao += 1
-    })
+    const count = (status: StationStatus) => stations.filter((s) => s.status === status).length
 
     return {
       total: stations.length,
-      ativas,
-      inativas,
-      manutencao,
-      instalacao,
+      ativas: count('Ativa'),
+      inativas: count('Inativa'),
+      comFalha: count('Com Falha'),
     }
   }, [stations])
 
@@ -197,18 +187,22 @@ export function Stations({ initialStations }: StationsProps = {}) {
       { label: 'Todas', value: 'Todas', count: counts.total },
       { label: 'Ativas', value: 'Ativas', count: counts.ativas },
       { label: 'Inativas', value: 'Inativas', count: counts.inativas },
-      { label: 'Manutenção', value: 'Manutenção', count: counts.manutencao },
-      { label: 'Instalação', value: 'Instalação', count: counts.instalacao },
+      { label: 'Com Falha', value: 'Com Falha', count: counts.comFalha },
     ],
     [counts],
   )
 
   const filteredStations = useMemo(() => {
+    const statusDoFiltro: Record<FilterStatus, StationStatus | null> = {
+      Todas: null,
+      Ativas: 'Ativa',
+      Inativas: 'Inativa',
+      'Com Falha': 'Com Falha',
+    }
+    const alvo = statusDoFiltro[statusFilter]
+
     return stations.filter((station) => {
-      if (statusFilter === 'Ativas' && station.status !== 'Ativa') return false
-      if (statusFilter === 'Inativas' && station.status !== 'Inativa') return false
-      if (statusFilter === 'Manutenção' && station.status !== 'Manutenção') return false
-      if (statusFilter === 'Instalação' && station.status !== 'Em instalação') return false
+      if (alvo && station.status !== alvo) return false
 
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim()
@@ -286,8 +280,14 @@ export function Stations({ initialStations }: StationsProps = {}) {
       return
     }
 
-    const municipio = usuario?.municipio?.trim()
-    if (!municipio) {
+    // ADMINISTRADOR não tem município no JWT e informa o da estação;
+    // GESTOR_PUBLICO não envia: o back usa o município do token (US-03).
+    const municipioAdmin = formMunicipio.trim()
+    if (isAdmin && !municipioAdmin) {
+      notify('Informe o município da estação.', 'error')
+      return
+    }
+    if (!isAdmin && !usuario?.municipio?.trim()) {
       notify('Município do usuário não identificado para vincular à estação.', 'error')
       return
     }
@@ -300,16 +300,16 @@ export function Stations({ initialStations }: StationsProps = {}) {
       await createStation({
         codigo: normalizedCodigo,
         nome: formNome.trim(),
-        municipio,
         latitude,
         longitude,
-        status: 'Ativa',
+        ...(isAdmin ? { municipio: municipioAdmin } : {}),
       })
 
       notify('Estação meteorológica cadastrada com sucesso', 'success')
 
       setFormCodigo('')
       setFormNome('')
+      setFormMunicipio('')
       setFormLat('')
       setFormLon('')
       setIsNewStationModalOpen(false)
@@ -418,16 +418,24 @@ export function Stations({ initialStations }: StationsProps = {}) {
         header: 'Ações',
         align: 'right',
         width: '90px',
-        render: (item) => (
-          <div className="flex items-center justify-end">
-            <Toggle
-              label={`Alternar status da estação ${item.codigo}`}
-              checked={item.ativo}
-              busy={togglingId === item.id}
-              onChange={() => handleToggleStatus(item.id)}
-            />
-          </div>
-        ),
+        render: (item) => {
+          // O PATCH só aceita Ativa/Inativa; alternar aqui apagaria o "Com Falha".
+          const comFalha = item.status === 'Com Falha'
+          return (
+            <div
+              className="flex items-center justify-end"
+              title={comFalha ? 'Estação com falha: o status não pode ser alternado.' : undefined}
+            >
+              <Toggle
+                label={`Alternar status da estação ${item.codigo}`}
+                checked={item.ativo}
+                busy={togglingId === item.id}
+                disabled={comFalha}
+                onChange={() => handleToggleStatus(item.id)}
+              />
+            </div>
+          )
+        },
       })
     }
 
@@ -570,6 +578,16 @@ export function Stations({ initialStations }: StationsProps = {}) {
               required
             />
 
+            {isAdmin && (
+              <Input
+                label="Município *"
+                placeholder="Ex: São José dos Campos"
+                value={formMunicipio}
+                onChange={(e) => setFormMunicipio(e.target.value)}
+                required
+              />
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <Input
                 label="Latitude *"
@@ -624,7 +642,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
               Inventário de Estações
             </h1>
             <p className="mt-1 text-sm text-muted">
-              {counts.total} estações cadastradas · {counts.ativas} ativas
+              {plural(counts.total, 'estação cadastrada', 'estações cadastradas')} ·{' '}
+              {plural(counts.ativas, 'ativa', 'ativas')}
+              {counts.comFalha > 0 && ` · ${counts.comFalha} com falha`}
             </p>
           </div>
 
@@ -695,43 +715,61 @@ export function Stations({ initialStations }: StationsProps = {}) {
             </div>
           )}
 
-          <Table
-            columns={columns}
-            data={paginatedStations}
-            loading={loading}
-            emptyMessage={
-              searchQuery || statusFilter !== 'Todas'
-                ? 'Nenhuma estação encontrada com os filtros aplicados.'
-                : 'Nenhuma estação cadastrada.'
-            }
-            keyExtractor={(item) => item.id}
-            containerClassName="border-0 rounded-none bg-transparent shadow-none"
-          />
+          {error && !loading ? (
+            <div
+              role="alert"
+              className="flex flex-col items-center justify-center gap-3 p-10 text-center"
+            >
+              <p className="text-sm font-semibold text-error">
+                Não foi possível carregar as estações.
+              </p>
+              <p className="text-xs text-muted">{error}</p>
+              <Button variant="secondary" onClick={handleRefresh}>
+                <Icon name="refresh" size={14} />
+                Tentar novamente
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Table
+                columns={columns}
+                data={paginatedStations}
+                loading={loading}
+                emptyMessage={
+                  searchQuery || statusFilter !== 'Todas'
+                    ? 'Nenhuma estação encontrada com os filtros aplicados.'
+                    : 'Nenhuma estação cadastrada.'
+                }
+                keyExtractor={(item) => item.id}
+                containerClassName="border-0 rounded-none bg-transparent shadow-none"
+              />
 
-          <Pagination
-            page={currentPage}
-            pageSize={pageSize}
-            total={totalFiltered}
-            onPage={(page) => setCurrentPage(page)}
-            onPageSize={(size) => {
-              setPageSize(size)
-              setCurrentPage(1)
-            }}
-            itemLabel="estações"
-            infoText={
-              <span className="text-[13px] text-muted">
-                Mostrando{' '}
-                <strong className="text-base-content font-semibold">
-                  {totalFiltered}
-                </strong>{' '}
-                de{' '}
-                <strong className="text-base-content font-semibold">
-                  {counts.total}
-                </strong>{' '}
-                estações
-              </span>
-            }
-          />
+              <Pagination
+                page={currentPage}
+                pageSize={pageSize}
+                total={totalFiltered}
+                onPage={(page) => setCurrentPage(page)}
+                onPageSize={(size) => {
+                  setPageSize(size)
+                  setCurrentPage(1)
+                }}
+                itemLabel="estações"
+                infoText={
+                  <span className="text-[13px] text-muted">
+                    Mostrando{' '}
+                    <strong className="text-base-content font-semibold">
+                      {totalFiltered}
+                    </strong>{' '}
+                    de{' '}
+                    <strong className="text-base-content font-semibold">
+                      {counts.total}
+                    </strong>{' '}
+                    {counts.total === 1 ? 'estação' : 'estações'}
+                  </span>
+                }
+              />
+            </>
+          )}
         </div>
       </div>
     </div>

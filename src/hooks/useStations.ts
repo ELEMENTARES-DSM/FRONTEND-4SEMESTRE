@@ -65,7 +65,6 @@ export function useStations(options: UseStationsOptions = {}) {
   }, [autoFetch, initialStations])
 
   const createStation = useCallback(async (data: CreateStationDTO): Promise<Station> => {
-    setError(null)
     const newStation = await stationsService.createStation(data)
     setStations((prev) => [newStation, ...prev])
     return newStation
@@ -77,12 +76,14 @@ export function useStations(options: UseStationsOptions = {}) {
       if (!station) {
         throw new Error(`Estação com id "${stationId}" não encontrada.`)
       }
+      if (station.status === 'Com Falha') {
+        throw new Error(`A estação ${station.codigo} está com falha; o status não pode ser alternado.`)
+      }
 
       const nextAtivo = !station.ativo
       const nextStatus: StationStatus = nextAtivo ? 'Ativa' : 'Inativa'
 
       setTogglingId(stationId)
-      setError(null)
       try {
         const updated = await stationsService.updateStationStatus(
           stationId,
@@ -101,13 +102,6 @@ export function useStations(options: UseStationsOptions = {}) {
           prev.map((item) => (item.id === stationId ? finalStation : item)),
         )
         return finalStation
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : `Erro ao alterar o status da estação ${station.codigo}.`
-        setError(message)
-        throw err
       } finally {
         setTogglingId(null)
       }

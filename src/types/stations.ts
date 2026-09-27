@@ -1,6 +1,6 @@
-export type StationStatus = 'Ativa' | 'Inativa' | 'Manutenção' | 'Em instalação'
+export type StationStatus = 'Ativa' | 'Inativa' | 'Com Falha'
 
-export type FilterStatus = 'Todas' | 'Ativas' | 'Inativas' | 'Manutenção' | 'Instalação'
+export type FilterStatus = 'Todas' | 'Ativas' | 'Inativas' | 'Com Falha'
 
 export interface StationCoordinates {
   latitude: number
@@ -31,12 +31,9 @@ export interface StationsProps {
 export interface CreateStationDTO {
   codigo: string
   nome: string
-  municipio: string
+  municipio?: string
   latitude: number
   longitude: number
-  status?: string
-  nivel_bateria?: number | null
-  ultimo_ping?: Date | null
 }
 
 export interface UpdateStationStatusDTO {

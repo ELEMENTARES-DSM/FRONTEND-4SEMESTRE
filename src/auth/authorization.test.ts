@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { createElement, type ReactNode } from 'react'
 import { renderHook } from '@testing-library/react'
+import { AuthContext } from './AuthContext'
 import {
   ROLE_PERMISSIONS,
   getPermissionsForRole,
@@ -42,15 +44,30 @@ describe('Camada de Autorização e Permissões (permissions.ts)', () => {
   })
 })
 
+function comPapel(papel: string) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(
+      AuthContext.Provider,
+      {
+        value: {
+          token: 'token-teste',
+          usuario: { id: `user-${papel}`, nome: papel, papel, municipio: null },
+          login: async () => {},
+          logout: async () => {},
+        },
+      },
+      children,
+    )
+  }
+}
+
 describe('Hook useAuthorization', () => {
   beforeEach(() => {
     localStorage.clear()
   })
 
   it('retorna permissões completas para ADMINISTRADOR', () => {
-    localStorage.setItem('userRole', 'ADMINISTRADOR')
-
-    const { result } = renderHook(() => useAuthorization())
+    const { result } = renderHook(() => useAuthorization(), { wrapper: comPapel('ADMINISTRADOR') })
 
     expect(result.current.papel).toBe('ADMINISTRADOR')
     expect(result.current.canAccessTerritory).toBe(true)
@@ -63,9 +80,7 @@ describe('Hook useAuthorization', () => {
   })
 
   it('retorna bloqueio total para PESQUISADOR', () => {
-    localStorage.setItem('userRole', 'PESQUISADOR')
-
-    const { result } = renderHook(() => useAuthorization())
+    const { result } = renderHook(() => useAuthorization(), { wrapper: comPapel('PESQUISADOR') })
 
     expect(result.current.papel).toBe('PESQUISADOR')
     expect(result.current.canAccessTerritory).toBe(false)
@@ -83,5 +98,19 @@ describe('Hook useAuthorization', () => {
     expect(result.current.canViewStations).toBe(false)
     expect(result.current.canCreateStation).toBe(false)
     expect(result.current.canToggleStation).toBe(false)
+  })
+
+  it('ignora papel e usuário gravados no localStorage sem token válido', () => {
+    localStorage.setItem('userRole', 'ADMINISTRADOR')
+    localStorage.setItem('userMunicipio', 'São José dos Campos')
+    localStorage.setItem(
+      'usuario',
+      JSON.stringify({ id: 'x', nome: 'Forjado', papel: 'ADMINISTRADOR', municipio: null }),
+    )
+
+    const { result } = renderHook(() => useAuthorization())
+
+    expect(result.current.usuario).toBeNull()
+    expect(result.current.canAccessTerritory).toBe(false)
   })
 })

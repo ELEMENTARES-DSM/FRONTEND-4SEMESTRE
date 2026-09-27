@@ -21,39 +21,10 @@ export interface UseAuthorizationReturn {
 export function useAuthorization(): UseAuthorizationReturn {
   const authContext = useContext(AuthContext)
 
-  const usuario = useMemo(() => {
-    if (authContext?.usuario) return authContext.usuario
-
-    const stored = readStoredSession()
-    if (stored?.usuario) return stored.usuario
-
-    if (typeof localStorage !== 'undefined') {
-      const storedUsuario = localStorage.getItem('usuario')
-      if (storedUsuario) {
-        try {
-          const parsed = JSON.parse(storedUsuario)
-          if (parsed && typeof parsed === 'object' && parsed.papel) {
-            return parsed as Usuario
-          }
-        } catch (_error) {
-          void _error
-        }
-      }
-
-      const userRole = localStorage.getItem('userRole')
-      const userMunicipio = localStorage.getItem('userMunicipio')
-      if (userRole) {
-        return {
-          id: 'test-user-id',
-          nome: 'Usuário Teste',
-          papel: userRole,
-          municipio: userMunicipio,
-        }
-      }
-    }
-
-    return null
-  }, [authContext])
+  const usuario = useMemo<Usuario | null>(
+    () => authContext?.usuario ?? readStoredSession()?.usuario ?? null,
+    [authContext],
+  )
 
   const papel = (usuario?.papel as Role) ?? null
 

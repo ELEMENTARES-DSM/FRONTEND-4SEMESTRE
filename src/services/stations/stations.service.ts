@@ -1,7 +1,5 @@
-import { env } from '../../config/env'
 import type { CreateStationDTO, Station, StationStatus } from '../../types/stations'
 import { stationsApiService } from './stations.api'
-import { stationsMockService } from './stations.mock'
 
 export interface StationsService {
   getStations(): Promise<Station[]>
@@ -14,11 +12,16 @@ export interface StationsService {
 }
 
 /**
- * Retorna a implementação de serviço adequada baseada na variável de ambiente VITE_USE_MOCK.
- * Centraliza a decisão entre Mock e API real.
+ * Retorna a implementação de serviço conforme VITE_USE_MOCKS (a mesma flag do resto do app).
+ * A condição fica inline com o import dinâmico: no build de produção DEV vira false,
+ * o ramo é removido e o mock não entra no bundle.
  */
-export function getStationsService(): StationsService {
-  return env.useMock ? stationsMockService : stationsApiService
+export async function getStationsService(): Promise<StationsService> {
+  if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true') {
+    const { stationsMockService } = await import('./stations.mock')
+    return stationsMockService
+  }
+  return stationsApiService
 }
 
 /**
@@ -26,8 +29,9 @@ export function getStationsService(): StationsService {
  * Expõe operações para a aplicação desacoplando-a de detalhes de transporte ou mock.
  */
 export const stationsService: StationsService = {
-  getStations: () => getStationsService().getStations(),
-  createStation: (data: CreateStationDTO) => getStationsService().createStation(data),
-  updateStationStatus: (id: string, ativo: boolean, status: StationStatus) =>
-    getStationsService().updateStationStatus(id, ativo, status),
+  getStations: async () => (await getStationsService()).getStations(),
+  createStation: async (data: CreateStationDTO) =>
+    (await getStationsService()).createStation(data),
+  updateStationStatus: async (id: string, ativo: boolean, status: StationStatus) =>
+    (await getStationsService()).updateStationStatus(id, ativo, status),
 }
