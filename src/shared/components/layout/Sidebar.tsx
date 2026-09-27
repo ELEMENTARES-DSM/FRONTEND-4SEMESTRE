@@ -155,8 +155,9 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => setRecolhida((value) => !value)}
-          aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
-          title={recolhida ? 'Expandir menu' : 'Recolher menu'}
+          aria-label={recolhida ? 'Expandir sidebar' : 'Recolher sidebar'}
+          title={recolhida ? 'Expandir sidebar' : 'Recolher sidebar'}
+          aria-expanded={!recolhida}
           className={`
     hidden md:flex
     w-full
@@ -214,8 +215,8 @@ export function Sidebar({
                 aria-label={item.label}
                 title={recolhida ? item.label : undefined}
                 className={`relative w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left transition-all group border ${recolhida ? 'md:justify-center md:px-2' : ''} ${active
-                    ? 'bg-secondary/10 text-secondary border-secondary/20'
-                    : 'bg-transparent text-muted border-transparent'
+                  ? 'bg-secondary/10 text-secondary border-secondary/20'
+                  : 'bg-transparent text-muted border-transparent'
                   }`}
               >
                 <span
@@ -240,8 +241,8 @@ export function Sidebar({
           <div className={`flex items-center gap-2 ${recolhida ? 'md:justify-center' : ''}`} title={systemStatus.label}>
             <div
               className={`w-2 h-2 rounded-full shrink-0 ${systemStatus.online
-                  ? 'bg-success shadow-[0_0_5px_var(--color-success)]'
-                  : 'bg-error shadow-[0_0_5px_var(--color-error)]'
+                ? 'bg-success shadow-[0_0_5px_var(--color-success)]'
+                : 'bg-error shadow-[0_0_5px_var(--color-error)]'
                 }`}
             />
             <span className={`text-[11px] text-muted ${recolhida ? 'md:hidden' : ''}`}>
