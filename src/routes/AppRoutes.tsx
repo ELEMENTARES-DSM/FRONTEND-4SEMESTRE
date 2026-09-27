@@ -16,7 +16,11 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/platform" replace />} />
           <Route path="/platform" element={<Platform />} />
-          <Route path="/platform/usuarios" element={<Usuarios />} />
+          <Route path="/platform/usuarios" element={
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR']}>
+              <Usuarios />
+            </ProtectedRoute>
+          } />
           <Route
           path="/platform/territory"
           element={

@@ -1,8 +1,6 @@
 import { isAxiosError } from "axios";
-import { Link } from "react-router-dom";
 import { StationsTable } from "../../components/stationsTable/StationsTable";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../auth/useAuth";
 import { Button } from "../../shared/components/Button";
 
 import { KpiCards } from "../../components/kpiCards/KpiCards";
@@ -13,7 +11,6 @@ import {
 } from "../../services/estacoesService";
 
 export function Platform() {
-  const { usuario, logout } = useAuth();
   const [estacoes, setEstacoes] = useState<EstacaoStatus[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -68,13 +65,6 @@ export function Platform() {
     <main className="min-h-screen bg-[#0B1120] p-6">
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">Plataforma</h1>
-        <Link to="/platform/usuarios" className="text-sm text-primary hover:underline">Usuários</Link>
-        {usuario && (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted">{usuario.nome}</span>
-            <Button onClick={() => void logout()}>Sair</Button>
-          </div>
-        )}
       </header>
       {loading ? (
         <KpiCardsSkeleton />
