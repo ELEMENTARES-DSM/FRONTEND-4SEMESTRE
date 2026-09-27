@@ -51,6 +51,16 @@ export const NAV: SidebarNavItem[] = [
     ),
   },
   {
+    path: "/platform/usuarios",
+    label: "Usuários",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="9" cy="7" r="4" />
+        <path d="M2 21v-2a7 7 0 0 1 14 0v2M17 3a4 4 0 0 1 0 8M22 21v-2a7 7 0 0 0-4-6.3" />
+      </svg>
+    ),
+  },
+  {
     path: "/alerts",
     label: "Alertas",
     icon: (
