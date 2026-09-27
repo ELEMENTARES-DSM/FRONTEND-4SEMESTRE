@@ -15,7 +15,7 @@ export interface Sensor {
 export async function getSensoresByEstacao(
   estacaoId: string,
 ): Promise<Sensor[]> {
-  const response = await api.get<SensorResponse[]>(`/estacoes/${estacaoId}/sensores`);
+  const response = await api.get<SensorResponse[]>(`/estacoes/estacoes/${estacaoId}/sensores`);
 
   return response.data.map(toSensor);
 }
@@ -24,7 +24,7 @@ export async function updateSensorStatus(
   sensorId: string,
   status: "Ativo" | "Inativo",
 ): Promise<void> {
-  await api.patch(`/sensores/${sensorId}/status`, {
+  await api.patch(`/estacoes/sensores/${sensorId}/status`, {
     status,
   });
 }
@@ -67,6 +67,6 @@ function toSensor(sensor: SensorResponse): Sensor {
 }
 
 export async function createSensor(estacaoId: string, dados: NovoSensor): Promise<Sensor> {
-  const response = await api.post<SensorResponse>(`/estacoes/${estacaoId}/sensores`, dados);
+  const response = await api.post<SensorResponse>(`/estacoes/estacoes/${estacaoId}/sensores`, dados);
   return toSensor(response.data);
 }
