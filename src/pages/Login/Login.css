@@ -1,0 +1,487 @@
+.pu-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(410px, .92fr);
+    min-height: 100svh;
+    color: var(--color-base-content);
+    background: var(--color-base-100);
+}
+
+.pu-story {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    min-width: 0;
+    min-height: 100svh;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    padding: clamp(30px, 4vw, 64px);
+    border-right: 1px solid var(--color-line);
+    background:
+        radial-gradient(circle at 51% 55%, #08739324 0, transparent 48%),
+        radial-gradient(circle at 100% 0%, #22b8b51c 0, transparent 41%),
+        var(--color-base-200);
+}
+
+.pu-story::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background-image:
+        linear-gradient(#82c5d008 1px, transparent 1px),
+        linear-gradient(90deg, #82c5d008 1px, transparent 1px);
+    background-size: 42px 42px;
+    content: '';
+    mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        black 22%,
+        black 80%,
+        transparent
+    );
+}
+
+.pu-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    width: fit-content;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: .075em;
+}
+
+.pu-brand strong {
+    color: var(--color-primary);
+}
+
+.pu-brand-symbol {
+    display: grid;
+    width: 43px;
+    height: 43px;
+    place-items: center;
+    border: 1px solid #00a6e654;
+    border-radius: 12px;
+    color: var(--color-primary);
+    background: #00a6e610;
+    box-shadow:
+        inset 0 0 20px #00a6e60c,
+        0 0 28px #00a6e619;
+}
+
+.pu-brand-symbol svg {
+    width: 33px;
+    height: 33px;
+}
+
+.pu-story-body {
+    width: min(100%, 660px);
+    margin: 0 auto;
+}
+
+.pu-eyebrow,
+.pu-entry-kicker,
+.pu-visual-top,
+.pu-visual-bottom,
+.pu-story-footer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+}
+
+.pu-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 18px;
+    color: var(--color-secondary);
+}
+
+.pu-eyebrow span {
+    width: 23px;
+    height: 1px;
+    background: currentColor;
+}
+
+.pu-story h1 {
+    max-width: 670px;
+    margin: 0;
+    font-size: clamp(37px, 4vw, 66px);
+    font-weight: 700;
+    line-height: 1.07;
+    letter-spacing: -.052em;
+}
+
+.pu-story h1 em {
+    color: var(--color-primary);
+    font-style: normal;
+}
+
+.pu-story-description {
+    max-width: 510px;
+    margin: 14px 0 0;
+    color: var(--color-muted);
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.pu-story-footer {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px 0 0;
+    color: var(--color-muted);
+    font-size: 10px;
+}
+
+.pu-story-footer span {
+    color: var(--color-primary);
+    font-size: 20px;
+    line-height: 10px;
+}
+
+.pu-visual {
+    position: relative;
+    width: 100%;
+    margin-top: clamp(12px, 2vh, 22px);
+    overflow: hidden;
+    border: 1px solid #3b728a;
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at 51% 47%, #12688c32 0, transparent 38%),
+        linear-gradient(142deg, #12334a, #081b2e 75%);
+    box-shadow:
+        0 28px 72px #020a1670,
+        inset 0 1px #8bc9d224;
+}
+
+.pu-visual::after {
+    position: absolute;
+    z-index: 1;
+    right: 0;
+    left: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        #68cbd052,
+        transparent
+    );
+    content: '';
+    pointer-events: none;
+    animation: pu-scan 9s linear infinite;
+}
+
+.pu-visual-top,
+.pu-visual-bottom {
+    position: absolute;
+    z-index: 2;
+    right: 20px;
+    left: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    color: #a0c0d0;
+    white-space: nowrap;
+    }
+
+.pu-visual-top {
+    top: 17px;
+}
+
+.pu-visual-bottom {
+    bottom: 17px;
+    font-size: 9px;
+    color: #7fa1b2;
+}
+
+.pu-visual-bottom b {
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    margin: 0 5px 2px;
+    border-radius: 50%;
+    background: var(--color-primary);
+}
+
+.pu-visual-signal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-success);
+}
+
+.pu-visual-signal i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 10px currentColor;
+    animation: pu-beacon 2.6s ease-in-out infinite;
+}
+
+.pu-visual-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.pu-contours {
+  opacity: .26;
+}
+
+.pu-route-line {
+    stroke-dasharray: 6 9;
+    animation: pu-flow 13s linear infinite;
+}
+
+.pu-node-ring {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pu-beacon 3.2s ease-in-out infinite;
+}
+
+.pu-node-two .pu-node-ring {
+    animation-delay: .8s;
+}
+
+.pu-node-three .pu-node-ring {
+    animation-delay: 1.6s;
+}
+
+.pu-center {
+    animation: pu-float 6s ease-in-out infinite;
+}
+
+.pu-entry {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 48px clamp(24px, 5vw, 80px);
+    background:
+        radial-gradient(circle at 100% 100%, #0f3f591f, transparent 46%),
+        var(--color-base-100);
+}
+
+.pu-entry-inner {
+    width: min(100%, 424px);
+}
+
+.pu-entry-kicker {
+    margin: 0 0 17px;
+    color: var(--color-primary);
+}
+
+.pu-entry-kicker span {
+    margin: 0 3px;
+    color: var(--color-muted);
+}
+
+.pu-entry h2 {
+    margin: 0;
+    font-size: clamp(30px, 3vw, 42px);
+    font-weight: 700;
+    letter-spacing: -.045em;
+    line-height: 1.12;
+}
+
+.pu-entry h2 span {
+    color: var(--color-primary);
+}
+
+.pu-entry-description {
+    max-width: 350px;
+    margin: 15px 0 29px;
+    color: var(--color-muted);
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.pu-login-card {
+    border-color: #29506c;
+    background: #0d2138;
+    box-shadow:
+        0 20px 60px #02091840,
+        inset 0 1px #bedbeb10;
+}
+
+.pu-login-card-body {
+    padding: 28px;
+}
+
+.pu-login-form {
+    display: grid;
+    gap: 20px;
+}
+
+.pu-login-submit {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    gap: 12px;
+    padding: 13px 18px;
+    font-size: 14px;
+}
+
+.pu-login-submit span {
+    font-size: 19px;
+    font-weight: 400;
+    line-height: 16px;
+}
+
+.pu-entry-footnote {
+    margin: 23px 0 0;
+    color: var(--color-muted);
+    text-align: center;
+    font-size: 11px;
+}
+
+@keyframes pu-flow {
+    to {
+        stroke-dashoffset: -150;
+    }
+}
+
+@keyframes pu-beacon {
+    0%, 100% {
+        opacity: .45;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+@keyframes pu-float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes pu-scan {
+    0% {
+        transform: translateY(0);
+        opacity: 0;
+    }
+
+    10%, 85% {
+        opacity: .7;
+    }
+
+    100% {
+        transform: translateY(420px);
+        opacity: 0;
+    }
+}
+
+@media (max-width: 1023px) {
+    .pu-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .pu-story {
+        min-height: 0;
+        padding: 20px clamp(20px, 5vw, 40px) 24px;
+        border-right: 0;
+        border-bottom: 1px solid var(--color-line);
+    }
+
+    .pu-story-body {
+        width: 100%;
+        margin-top: 22px;
+    }
+
+    .pu-story h1 {
+        max-width: 450px;
+        font-size: clamp(27px, 7vw, 40px);
+        line-height: 1.09;
+    }
+
+    .pu-desktop-line,
+    .pu-story-description,
+    .pu-story-footer {
+        display: none;
+    }
+
+    .pu-eyebrow {
+        margin-bottom: 10px;
+        font-size: 9px;
+    }
+
+    .pu-visual {
+    max-width: 530px;
+    margin: 12px auto 0;
+    border-radius: 16px;
+    }
+
+    .pu-visual-bottom {
+        display: none;
+    }
+
+    .pu-entry {
+        padding: 34px 20px 50px;
+    }
+
+    .pu-entry-description {
+        margin-bottom: 22px;
+    }
+}
+
+@media (max-width: 420px) {
+    .pu-brand {
+        gap: 9px;
+        font-size: 13px;
+    }
+
+    .pu-brand-symbol {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+    }
+
+    .pu-brand-symbol svg {
+        width: 29px;
+        height: 29px;
+    }
+
+    .pu-visual-top {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        font-size: 8px;
+        letter-spacing: .05em;
+    }
+
+    .pu-visual-signal {
+        gap: 5px;
+    }
+
+    .pu-entry h2 {
+        font-size: 30px;
+    }
+
+    .pu-login-card-body {
+        padding: 21px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pu-route-line,
+    .pu-node-ring,
+    .pu-center,
+    .pu-visual::after,
+    .pu-visual-signal i {
+        animation: none;
+    }
+
+    .pu-visual::after {
+        display: none;
+    }
+}

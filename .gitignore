@@ -7,18 +7,63 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependências
+node_modules/
+.pnp
+.pnp.js
+
+# Build e compilação
+dist/
+dist-ssr/
+build/
+out/
+*.tsbuildinfo
+.tsbuildinfo
+
+# Variáveis de ambiente e credenciais
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
 *.local
 
-# Editor directories and files
+# Testes e cobertura
+coverage/
+.nyc_output/
+
+# Cache de ferramentas e linters
+.cache/
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.vite/
+
+# Configurações de IDEs e editores
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/settings.json
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos do sistema operacional
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# Arquivos temporários
+*.tmp
+*.temp

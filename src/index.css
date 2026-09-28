@@ -1,2 +1,157 @@
-@import "tailwindcss";
-@plugin "daisyui";
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import 'tailwindcss';
+@plugin 'daisyui' {
+  themes: false;
+}
+@plugin 'daisyui/theme' {
+  name: 'pulso';
+  default: true;
+  color-scheme: dark;
+  --color-base-100: #071426;
+  --color-base-200: #0d1d33;
+  --color-base-300: #11243d;
+  --color-base-content: #f8fafc;
+  --color-primary: #00a6e6;
+  --color-primary-content: #071426;
+  --color-secondary: #22b8b5;
+  --color-secondary-content: #071426;
+  --color-accent: #f28c28;
+  --color-accent-content: #071426;
+  --color-neutral: #203752;
+  --color-neutral-content: #f8fafc;
+  --color-info: #00a6e6;
+  --color-info-content: #071426;
+  --color-success: #8cdd2d;
+  --color-success-content: #071426;
+  --color-warning: #f28c28;
+  --color-warning-content: #071426;
+  --color-error: #f05252;
+  --color-error-content: #071426;
+  --radius-selector: 0.375rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.625rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --color-muted: #94a3b8;
+  --color-line: #203752;
+  --color-line-hover: #2c4a6e;
+  --color-table-head: #071d2f;
+  --color-row-hover: #0d2540;
+  --animate-enter: enter 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-dialog: dialog 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-sheet: sheet 250ms ease both;
+  --animate-glow: glow 2.6s ease-in-out infinite;
+  --animate-dot: dot 2.4s ease-in-out infinite;
+  --animate-toast: toast 200ms ease both;
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes dialog {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes sheet {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 #00a6e600;
+    }
+    50% {
+      box-shadow: 0 0 0 4px #00a6e61f;
+    }
+  }
+  @keyframes dot {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 #8cdd2d80;
+    }
+    50% {
+      box-shadow: 0 0 0 4px #8cdd2d00;
+    }
+  }
+  @keyframes toast {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background: var(--color-base-100);
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--color-base-content);
+    -webkit-font-smoothing: antialiased;
+  }
+  button:not(:disabled),
+  select {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-base-100);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
