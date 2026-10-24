@@ -29,8 +29,22 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route path="/platform/estacoes/:estacaoId" element={<StationDetails />} />
-          <Route path="/alerts" element={<Alerts />} />
+        <Route
+          path="/platform/estacoes/:estacaoId"
+          element={
+            <ProtectedRoute requiredPermission="stations.view">
+              <StationDetails />
+            </ProtectedRoute>
+          }
+        />
+          <Route
+            path="/alerts"
+            element={
+              <ProtectedRoute requiredPermission="alerts.manage">
+                <Alerts />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Route>
 
