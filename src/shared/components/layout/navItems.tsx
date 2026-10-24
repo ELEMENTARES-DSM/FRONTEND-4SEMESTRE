@@ -63,6 +63,7 @@ export const NAV: SidebarNavItem[] = [
   {
     path: "/alerts",
     label: "Alertas",
+    permission: "alerts.manage",
     icon: (
       <svg
         width="18"
