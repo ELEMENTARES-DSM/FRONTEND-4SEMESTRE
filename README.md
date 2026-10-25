@@ -89,7 +89,7 @@ Validação manual com a API disponível: abrir uma estação, conferir listagem
 
 ### Conexão com a API
 
-As chamadas utilizam `VITE_API_URL`, com `http://localhost:8080` como padrão, sem interceptação por mocks. Configure a URL no `.env` e reinicie `npm run dev` após alterações. A autenticação envia o token salvo em `localStorage` na chave `token` como Bearer Token.
+As chamadas utilizam `VITE_API_URL`. Em desenvolvimento, use `VITE_API_URL=/`: o servidor do Vite encaminha `/auth`, `/usuarios`, `/estacoes` e `/alertas` para o gateway do backend na porta 80 (`docker compose up` no backend), sem CORS. Configure a URL no `.env` e reinicie `npm run dev` após alterações. A autenticação envia o token salvo em `localStorage` na chave `token` como Bearer Token.
 
 Os endpoints de listagem e alteração de status acima foram preservados. A integração ainda precisa alinhar a resposta `{ resumo, estacoes }` da listagem de estações, os campos dos sensores (`tipo` e `unidade_medida` no backend), o cálculo de tempo desde o último ping e o encaminhamento de `/sensores` no gateway.
 
