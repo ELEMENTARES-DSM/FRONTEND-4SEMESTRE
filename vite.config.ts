@@ -21,6 +21,8 @@ export default defineConfig({
     isolate: true,
     setupFiles: ["./src/setupTests.ts", "./src/test/setup.ts"],
     pool: "threads",
+    // Folga para máquina carregada: o primeiro teste de uma tela pesada passou de 5 s com CI e Docker rodando juntos.
+    testTimeout: 15_000,
     css: false,
     coverage: {
       enabled: true,

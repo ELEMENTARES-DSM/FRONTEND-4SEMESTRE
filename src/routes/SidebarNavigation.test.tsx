@@ -42,10 +42,10 @@ afterEach(() => {
 
 describe('Navegação autenticada pela sidebar', () => {
   it.each([
-    ['ADMINISTRADOR', 'Administrador', true],
-    ['GESTOR_PUBLICO', 'Gestor Público', false],
-    ['PESQUISADOR', 'Pesquisador', false],
-  ])('mostra nome, perfil e menu corretos para %s', async (papel, label, canManageUsers) => {
+    ['ADMINISTRADOR', 'Administrador', true, true],
+    ['GESTOR_PUBLICO', 'Gestor Público', false, true],
+    ['PESQUISADOR', 'Pesquisador', false, false],
+  ])('mostra nome, perfil e menu corretos para %s', async (papel, label, canManageUsers, canViewStations) => {
     renderNavigation(papel)
     const sidebar = within(screen.getByRole('complementary'))
     expect(sidebar.getByText('Maria Silva')).toBeInTheDocument()
@@ -55,7 +55,11 @@ describe('Navegação autenticada pela sidebar', () => {
     const panel = within(screen.getByRole('heading', { name: 'Plataforma' }).closest('main')!)
     expect(panel.queryByText('Usuários')).not.toBeInTheDocument()
     expect(panel.queryByRole('button', { name: 'Sair' })).not.toBeInTheDocument()
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/estacoes/status'))
+    if (canViewStations) {
+      await waitFor(() => expect(api.get).toHaveBeenCalledWith('/estacoes/status'))
+    } else {
+      expect(api.get).not.toHaveBeenCalledWith('/estacoes/status')
+    }
   })
 
   it.each([false, true])('navega para usuários pelo menu do administrador com sidebar recolhida=%s', async (recolhida) => {

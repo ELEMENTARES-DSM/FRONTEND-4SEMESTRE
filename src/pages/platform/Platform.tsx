@@ -2,6 +2,7 @@ import { isAxiosError } from "axios";
 import { StationsTable } from "../../components/stationsTable/StationsTable";
 import { useEffect, useState } from "react";
 import { Button } from "../../shared/components/Button";
+import { useAuthorization } from "../../auth/useAuthorization";
 
 import { KpiCards } from "../../components/kpiCards/KpiCards";
 import { KpiCardsSkeleton } from "../../components/kpiCards/KpiCardsSkeleton";
@@ -11,12 +12,15 @@ import {
 } from "../../services/estacoesService";
 
 export function Platform() {
+  // Sem stations.view a API responde 403: a tela não consulta e mostra um estado neutro.
+  const { canViewStations } = useAuthorization();
   const [estacoes, setEstacoes] = useState<EstacaoStatus[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!canViewStations) return;
     let ativo = true;
 
     async function carregarEstacoes() {
@@ -45,7 +49,7 @@ export function Platform() {
     return () => {
       ativo = false;
     };
-  }, [reload]);
+  }, [reload, canViewStations]);
 
   const total = estacoes.length;
 
@@ -60,6 +64,20 @@ export function Platform() {
   const inativas = estacoes.filter(
     (estacao) => estacao.status_operacional === "Inativa",
   ).length;
+
+  if (!canViewStations) {
+    return (
+      <main className="min-h-screen bg-[#0B1120] p-6">
+        <header className="mb-6 flex items-center justify-between gap-4">
+          <h1 className="text-xl font-semibold">Plataforma</h1>
+        </header>
+        <section className="rounded-lg border border-line bg-base-200 p-4 text-sm text-muted">
+          Os indicadores e a tabela de estações são para gestores públicos e administradores.
+          Seu perfil não tem painéis nesta tela.
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#0B1120] p-6">

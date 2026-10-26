@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { NAV } from "./navItems";
+import { IndicadorAlarmes } from "../../../components/alarms/IndicadorAlarmes";
 
 export interface HeaderProps {
   onMenuClick?: () => void;
@@ -46,6 +47,8 @@ export function Header({ onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex-1" />
+
+      <IndicadorAlarmes />
 
       {/* Period picker */}
       <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer hover:opacity-90 bg-base-300 text-base-content border border-line">

@@ -1,0 +1,32 @@
+{
+  "_origem": "BACKEND-4SEMESTRE services/alertas-notificacoes/src/docs/openapi.json (components.schemas.*.example), copiado sem alteração",
+  "alarme": {
+    "id": "0b6f2a4e-1c3d-4e5f-8a9b-1c2d3e4f5a6b",
+    "regra_id": "7b1e2c3d-4f5a-4b6c-8d7e-9f0a1b2c3d4e",
+    "regra_nome": "PM2.5 crítico",
+    "sensor_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "sensor_codigo": "PM25-01",
+    "sensor_tipo": "PM2.5",
+    "sensor_unidade_medida": "µg/m³",
+    "estacao_id": "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+    "estacao_codigo": "SJC-001",
+    "estacao_nome": "Estação Centro",
+    "municipio": "São José dos Campos",
+    "valor": 52.3,
+    "operador": ">=",
+    "limite": 50,
+    "severidade": "CRITICO",
+    "situacao": "aberto",
+    "lido_em": "2026-10-24T13:00:00.000Z",
+    "criado_em": "2026-10-24T13:00:01.412Z",
+    "normalizado_em": null
+  },
+  "resumo": {
+    "abertos": {
+      "ATENCAO": 0,
+      "ALERTA": 1,
+      "CRITICO": 2
+    },
+    "total": 3
+  }
+}
