@@ -11,6 +11,7 @@ import { Table, type TableColumn } from '../shared/components/Table'
 import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
 import { Header, Sidebar } from '../shared/components/layout'
+import Chart from '../components/chart/Chart'
 
 interface EstacaoMock {
   id: string
@@ -81,22 +82,20 @@ export default function DevLib() {
       sortable: true,
       render: (item) => (
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            item.status === 'Operacional'
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${item.status === 'Operacional'
               ? 'bg-success/15 text-success border border-success/30'
               : item.status === 'Alerta'
                 ? 'bg-warning/15 text-warning border border-warning/30'
                 : 'bg-error/15 text-error border border-error/30'
-          }`}
+            }`}
         >
           <span
-            className={`size-1.5 rounded-full ${
-              item.status === 'Operacional'
+            className={`size-1.5 rounded-full ${item.status === 'Operacional'
                 ? 'bg-success'
                 : item.status === 'Alerta'
                   ? 'bg-warning'
                   : 'bg-error'
-            }`}
+              }`}
           />
           {item.status}
         </span>
@@ -132,6 +131,33 @@ export default function DevLib() {
     'trash',
     'box',
   ] as const
+
+  const dadosGrafico = [
+    {
+      label: 'PM2.5',
+      cor: '#2DD4BF',
+      dados: [
+        { timestamp: '2026-11-16T09:00:00.000Z', valor: 18 },
+        { timestamp: '2026-11-16T10:00:00.000Z', valor: 22 },
+        { timestamp: '2026-11-16T11:00:00.000Z', valor: 20 },
+        { timestamp: '2026-11-16T12:00:00.000Z', valor: 25 },
+        { timestamp: '2026-11-16T13:00:00.000Z', valor: 19 },
+        { timestamp: '2026-11-16T14:00:00.000Z', valor: 23 },
+      ],
+    },
+    {
+      label: 'PM10',
+      cor: '#F59E0B',
+      dados: [
+        { timestamp: '2026-11-16T09:00:00.000Z', valor: 30 },
+        { timestamp: '2026-11-16T10:00:00.000Z', valor: 35 },
+        { timestamp: '2026-11-16T11:00:00.000Z', valor: 32 },
+        { timestamp: '2026-11-16T12:00:00.000Z', valor: 38 },
+        { timestamp: '2026-11-16T13:00:00.000Z', valor: 34 },
+        { timestamp: '2026-11-16T14:00:00.000Z', valor: 36 },
+      ],
+    },
+  ]
 
   return (
     <div className="min-h-screen bg-base-100 p-6 sm:p-10 text-base-content">
@@ -233,7 +259,7 @@ export default function DevLib() {
                 label="Toggle em carregamento"
                 checked={true}
                 busy={true}
-                onChange={() => {}}
+                onChange={() => { }}
               />
               <span className="text-sm text-muted">Carregando (busy)</span>
             </div>
@@ -693,6 +719,27 @@ export default function DevLib() {
             </div>
           </div>
         </div>
+      </Card>
+
+      {/* 13. Chart */}
+      <Card
+        className="mt-8"
+        icon={<Icon name="box" className="text-primary" />}
+        title="13. Gráfico de Séries Temporais (Chart.tsx)"
+      >
+        <p className="mb-4 text-sm text-muted">
+          Gráfico reutilizável com duas séries de dados, legenda,
+          eixos, unidade de medida e tooltip interativo.
+        </p>
+
+        <Chart
+          titulo="Concentração de material particulado"
+          series={dadosGrafico}
+          unidade="µg/m³"
+          rotuloEixoX="Horário"
+          rotuloEixoY="Concentração"
+          altura={350}
+        />
       </Card>
     </div>
   )

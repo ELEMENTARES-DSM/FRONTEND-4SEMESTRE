@@ -2,6 +2,12 @@ import { AxiosError } from 'axios';
 import type { AxiosAdapter, AxiosResponse } from 'axios';
 import type { EstacaoStatus } from '../services/estacoesService';
 import type { Alarme, SeveridadeAlarme } from '../types/alarms';
+import type { PeriodoAnalise } from '../services/analise/analise.service';
+import {
+  criarMockSeries,
+  criarMockUltimasLeituras,
+  mockIqar,
+} from './analiseMock';
 
 const unidades = {
   Temperatura: '°C',
@@ -101,6 +107,59 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
     throw new AxiosError(message, AxiosError.ERR_BAD_REQUEST, config, undefined, response({ message }, status));
   };
   // Mesmo envelope retornado pelo backend.
+
+    // Rotas de análise de dados.
+  const seriesRoute = url.match(
+    /^\/analise\/estacoes\/([^/]+)\/series$/,
+  );
+
+  if (method === 'get' && seriesRoute) {
+    const estacaoId = seriesRoute[1];
+
+    if (!estacoes.some((item) => item.id === estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
+
+    const params = config.params as
+      | { grandeza?: string; periodo?: string }
+      | undefined;
+
+    const grandeza = params?.grandeza;
+    const periodo = params?.periodo;
+
+    if (!grandeza) {
+      return fail(400, 'A grandeza é obrigatória.');
+    }
+
+    const periodosValidos: PeriodoAnalise[] = ['24h', '7d', '30d'];
+
+    if (!periodo || !periodosValidos.includes(periodo as PeriodoAnalise)) {
+      return fail(400, 'Período inválido.');
+    }
+
+    return response(
+      criarMockSeries(estacaoId, grandeza, periodo as PeriodoAnalise),
+    );
+  }
+
+  const ultimasLeiturasRoute = url.match(
+    /^\/analise\/estacoes\/([^/]+)\/ultimas-leituras$/,
+  );
+
+  if (method === 'get' && ultimasLeiturasRoute) {
+    const estacaoId = ultimasLeiturasRoute[1];
+
+    if (!estacoes.some((item) => item.id === estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
+
+    return response(criarMockUltimasLeituras(estacaoId));
+  }
+
+  if (method === 'get' && url === '/analise/iqar') {
+    return response(mockIqar);
+  }
+
   if (method === 'get' && url === '/estacoes/status') return response({
     resumo: { total: 3, ativas: 1, com_falha: 1, inativas: 1 },
     estacoes,
