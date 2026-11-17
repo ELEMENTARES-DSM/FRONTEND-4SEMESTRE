@@ -7,6 +7,8 @@ export interface Sensor {
   nome?: string;
   grandeza: string;
   unidade: string;
+  // Unidade em que a placa envia (ex.: K). Só informa: quem converte são o fator e o offset.
+  unidade_leitura?: string | null;
   // valor = leitura × fator_conversao + offset
   fator_conversao: number;
   offset: number;
@@ -30,18 +32,29 @@ export async function updateSensorStatus(
   });
 }
 
-export const tiposSensor = {
-  Temperatura: "°C",
-  "Umidade Relativa": "%",
-  "PM2.5": "µg/m³",
-  PM10: "µg/m³",
-  "Velocidade do Vento": "km/h",
-} as const;
+/** Grandeza do catálogo (GET /estacoes/tipos-sensor), mantido pelo Administrador. */
+export interface TipoSensor {
+  id: string;
+  nome: string;
+  unidade: string;
+  // NUMERIC chega como texto.
+  faixa_min: string;
+  faixa_max: string;
+  agregacao: "media" | "soma" | "media_circular";
+}
+
+export async function getTiposSensor(): Promise<TipoSensor[]> {
+  const response = await api.get<TipoSensor[]>("/estacoes/tipos-sensor");
+  return response.data;
+}
 
 export interface NovoSensor {
   codigo: string;
   nome: string;
-  tipo: keyof typeof tiposSensor;
+  // Nome de uma grandeza do catálogo.
+  tipo: string;
+  // Só vai no corpo quando preenchida.
+  unidade_leitura?: string;
   fator_conversao: number;
   offset: number;
 }
@@ -51,6 +64,7 @@ interface SensorResponse {
   estacao_id: string;
   tipo: string;
   unidade_medida: string;
+  unidade_leitura?: string | null;
   fator_conversao: string | number;
   offset: string | number;
   status: Sensor["status"];
@@ -63,6 +77,7 @@ function toSensor(sensor: SensorResponse): Sensor {
     id: sensor.id, estacao_id: sensor.estacao_id,
     codigo: sensor.codigo, nome: sensor.nome,
     grandeza: sensor.tipo, unidade: sensor.unidade_medida,
+    unidade_leitura: sensor.unidade_leitura ?? null,
     fator_conversao: Number(sensor.fator_conversao), offset: Number(sensor.offset), status: sensor.status,
   };
 }

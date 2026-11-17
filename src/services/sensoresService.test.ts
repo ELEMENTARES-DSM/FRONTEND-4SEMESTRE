@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createSensor, getSensoresByEstacao } from './sensoresService'
+import { createSensor, getSensoresByEstacao, getTiposSensor } from './sensoresService'
 
 const http = vi.hoisted(() => ({
   get: vi.fn(),
@@ -61,5 +61,49 @@ describe('sensoresService: fator_conversao e offset (US-39)', () => {
     expect(corpo).not.toHaveProperty('fator')
     expect(corpo).not.toHaveProperty('ganho')
     expect(criado.offset).toBe(-273.15)
+  })
+})
+
+describe('sensoresService: catálogo e unidade da leitura (US-39)', () => {
+  it('busca as grandezas em GET /estacoes/tipos-sensor e devolve a lista como veio', async () => {
+    const catalogo = [
+      { id: 'g-1', nome: 'Direção do Vento', unidade: '°', faixa_min: '0.00', faixa_max: '360.00', agregacao: 'media_circular' },
+      { id: 'g-2', nome: 'Precipitação', unidade: 'mm', faixa_min: '0.00', faixa_max: '500.00', agregacao: 'soma' },
+    ]
+    http.get.mockResolvedValueOnce({ data: catalogo })
+
+    await expect(getTiposSensor()).resolves.toEqual(catalogo)
+    expect(http.get).toHaveBeenCalledWith('/estacoes/tipos-sensor')
+  })
+
+  it('deixa o erro da busca subir para a tela mostrar o aviso', async () => {
+    http.get.mockRejectedValueOnce(new Error('Network Error'))
+
+    await expect(getTiposSensor()).rejects.toThrow('Network Error')
+  })
+
+  it('lê unidade_leitura da resposta e usa null quando o sensor não tem (sensor antigo)', async () => {
+    http.get.mockResolvedValueOnce({
+      data: [
+        { ...respostaDoSensor, unidade_leitura: 'K' },
+        { ...respostaDoSensor, id: 's-2', codigo: 'UMID-01' },
+        { ...respostaDoSensor, id: 's-3', codigo: 'PM-01', unidade_leitura: null },
+      ],
+    })
+
+    const sensores = await getSensoresByEstacao(ESTACAO)
+
+    expect(sensores.map((s) => s.unidade_leitura)).toEqual(['K', null, null])
+  })
+
+  it('envia unidade_leitura só quando ela é informada', async () => {
+    http.post.mockResolvedValue({ data: respostaDoSensor })
+    const base = { codigo: 'TEMP-K', nome: 'Termômetro', tipo: 'Temperatura', fator_conversao: 1, offset: -273.15 }
+
+    await createSensor(ESTACAO, { ...base, unidade_leitura: 'K' })
+    await createSensor(ESTACAO, base)
+
+    expect(http.post.mock.calls[0][1]).toHaveProperty('unidade_leitura', 'K')
+    expect(http.post.mock.calls[1][1]).not.toHaveProperty('unidade_leitura')
   })
 })
