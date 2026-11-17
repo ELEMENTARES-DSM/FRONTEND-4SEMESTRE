@@ -16,8 +16,8 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState<NovoSensor["tipo"]>("Temperatura");
-  const [fator, setFator] = useState("1");
-  const [ganho, setGanho] = useState("0");
+  const [fatorConversao, setFatorConversao] = useState("1");
+  const [offset, setOffset] = useState("0");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const submitting = useRef(false);
@@ -34,14 +34,14 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
       setErro("Use até 30 caracteres no código e 100 no nome.");
       return;
     }
-    if ([fator, ganho].some((value) => !value.trim() || !Number.isFinite(Number(value)) || Math.abs(Number(value)) > 999999.999999)) {
-      setErro("Informe valores válidos para fator e ganho, entre -999999,999999 e 999999,999999.");
+    if ([fatorConversao, offset].some((value) => !value.trim() || !Number.isFinite(Number(value)) || Math.abs(Number(value)) > 999999.999999)) {
+      setErro("Informe valores válidos para o fator de conversão e o offset, entre -999999,999999 e 999999,999999.");
       return;
     }
     submitting.current = true;
     setBusy(true);
     try {
-      const sensor = await createSensor(estacaoId, { codigo: codigo.trim(), nome: nome.trim(), tipo, fator: Number(fator), ganho: Number(ganho) });
+      const sensor = await createSensor(estacaoId, { codigo: codigo.trim(), nome: nome.trim(), tipo, fator_conversao: Number(fatorConversao), offset: Number(offset) });
       onCreated(sensor);
     } catch (error) {
       const status = isAxiosError(error) ? error.response?.status : undefined;
@@ -70,10 +70,10 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
           </Select>
           <Input label="Unidade de medida" value={tiposSensor[tipo]} readOnly />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Fator" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={fator} onChange={(event) => setFator(event.target.value)} />
-            <Input label="Ganho" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={ganho} onChange={(event) => setGanho(event.target.value)} />
+            <Input label="Fator de conversão" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={fatorConversao} onChange={(event) => setFatorConversao(event.target.value)} />
+            <Input label="Offset" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={offset} onChange={(event) => setOffset(event.target.value)} />
           </div>
-          <p className="text-xs text-muted">Para sensores já calibrados, mantenha fator 1 e ganho 0. O sensor será cadastrado como Ativo.</p>
+          <p className="text-xs text-muted">valor = leitura × fator de conversão + offset. Para sensores já calibrados, mantenha fator 1 e offset 0. O sensor será cadastrado como Ativo.</p>
         </fieldset>
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button onClick={onClose} disabled={busy}>Cancelar</Button>

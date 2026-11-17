@@ -24,15 +24,15 @@ interface MockSensor {
   estacao_id: string;
   tipo: keyof typeof unidades;
   unidade_medida: string;
-  fator: string;
-  ganho: string;
+  fator_conversao: string;
+  offset: string;
   status: 'Ativo' | 'Inativo';
 }
 
 const sensores: MockSensor[] = [
-  { codigo: 'TEMP-01', nome: 'Temperatura do ar', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', estacao_id: estacoes[0].id, tipo: 'Temperatura', unidade_medida: '°C', fator: '1.000000', ganho: '0.000000', status: 'Ativo' },
-  { codigo: 'UMID-01', nome: 'Umidade relativa do ar', id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', estacao_id: estacoes[0].id, tipo: 'Umidade Relativa', unidade_medida: '%', fator: '1.000000', ganho: '0.000000', status: 'Inativo' },
-  { codigo: 'PM25-01', nome: 'Qualidade do ar', id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', estacao_id: estacoes[1].id, tipo: 'PM2.5', unidade_medida: 'µg/m³', fator: '1.025000', ganho: '-0.500000', status: 'Ativo' },
+  { codigo: 'TEMP-01', nome: 'Temperatura do ar', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', estacao_id: estacoes[0].id, tipo: 'Temperatura', unidade_medida: '°C', fator_conversao: '1.000000', offset: '0.000000', status: 'Ativo' },
+  { codigo: 'UMID-01', nome: 'Umidade relativa do ar', id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', estacao_id: estacoes[0].id, tipo: 'Umidade Relativa', unidade_medida: '%', fator_conversao: '1.000000', offset: '0.000000', status: 'Inativo' },
+  { codigo: 'PM25-01', nome: 'Qualidade do ar', id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', estacao_id: estacoes[1].id, tipo: 'PM2.5', unidade_medida: 'µg/m³', fator_conversao: '1.025000', offset: '-0.500000', status: 'Ativo' },
 ];
 
 // US-24: alarmes no formato de GET /alertas/alarmes (OpenAPI do alertas-notificacoes).
@@ -118,11 +118,11 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
       if (!codigo || codigo.length > 30 || !nome || nome.length > 100) return fail(400, 'Código e nome são obrigatórios (máximo de 30 e 100 caracteres).');
       if (sensores.some((item) => item.estacao_id === estacaoId && item.codigo === codigo)) return fail(409, 'Código já cadastrado nesta estação.');
       const tipo = body.tipo as MockSensor['tipo'];
-      const fator = body.fator ?? 1;
-      const ganho = body.ganho ?? 0;
-      if (![fator, ganho].every((value) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 999999.999999)) return fail(400, 'Calibração inválida.');
+      const fatorConversao = body.fator_conversao ?? 1;
+      const offset = body.offset ?? 0;
+      if (![fatorConversao, offset].every((value) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 999999.999999)) return fail(400, 'Calibração inválida.');
       if (sensores.some((item) => item.estacao_id === estacaoId && item.tipo === tipo)) return fail(409, 'Esta estação já possui um sensor deste tipo.');
-      const sensor: MockSensor = { codigo, nome, id: crypto.randomUUID(), estacao_id: estacaoId, tipo, unidade_medida: unidades[tipo], fator: fator.toFixed(6), ganho: ganho.toFixed(6), status: 'Ativo' };
+      const sensor: MockSensor = { codigo, nome, id: crypto.randomUUID(), estacao_id: estacaoId, tipo, unidade_medida: unidades[tipo], fator_conversao: fatorConversao.toFixed(6), offset: offset.toFixed(6), status: 'Ativo' };
       sensores.push(sensor);
       return response(sensor, 201);
     }

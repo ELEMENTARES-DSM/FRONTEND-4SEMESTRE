@@ -7,8 +7,9 @@ export interface Sensor {
   nome?: string;
   grandeza: string;
   unidade: string;
-  fator: number;
-  ganho: number;
+  // valor = leitura × fator_conversao + offset
+  fator_conversao: number;
+  offset: number;
   status: "Ativo" | "Inativo";
 }
 
@@ -41,8 +42,8 @@ export interface NovoSensor {
   codigo: string;
   nome: string;
   tipo: keyof typeof tiposSensor;
-  fator: number;
-  ganho: number;
+  fator_conversao: number;
+  offset: number;
 }
 
 interface SensorResponse {
@@ -50,8 +51,8 @@ interface SensorResponse {
   estacao_id: string;
   tipo: string;
   unidade_medida: string;
-  fator: string | number;
-  ganho: string | number;
+  fator_conversao: string | number;
+  offset: string | number;
   status: Sensor["status"];
   codigo?: string;
   nome?: string;
@@ -62,7 +63,7 @@ function toSensor(sensor: SensorResponse): Sensor {
     id: sensor.id, estacao_id: sensor.estacao_id,
     codigo: sensor.codigo, nome: sensor.nome,
     grandeza: sensor.tipo, unidade: sensor.unidade_medida,
-    fator: Number(sensor.fator), ganho: Number(sensor.ganho), status: sensor.status,
+    fator_conversao: Number(sensor.fator_conversao), offset: Number(sensor.offset), status: sensor.status,
   };
 }
 
