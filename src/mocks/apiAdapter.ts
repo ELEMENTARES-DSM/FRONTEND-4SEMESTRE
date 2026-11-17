@@ -78,6 +78,18 @@ const alarmes: Alarme[] = [
   }),
 ];
 
+// Códigos que as estações já mandaram. O mock devolve só os que ainda não têm sensor
+// (de qualquer status, comparação exata), como o backend.
+const recebidos: Record<string, Array<{ codigo: string; total: number; ultimo_valor: number | null; ultima_leitura_em: string }>> = {
+  [estacoes[0].id]: [
+    { codigo: 'PM25', total: 12, ultimo_valor: 12, ultima_leitura_em: minutosAtras(3) },
+    { codigo: 'PM10', total: 12, ultimo_valor: 20, ultima_leitura_em: minutosAtras(3) },
+    { codigo: 'DIR-01', total: 4, ultimo_valor: 270, ultima_leitura_em: minutosAtras(25) },
+    { codigo: 'TEMP-01', total: 12, ultimo_valor: 24.9, ultima_leitura_em: minutosAtras(3) },
+  ],
+  [estacoes[1].id]: [{ codigo: 'CHUVA-01', total: 2, ultimo_valor: 0.4, ultima_leitura_em: minutosAtras(90) }],
+};
+
 function filtrarAlarmes(params: Record<string, string | undefined> = {}): Alarme[] {
   return alarmes
     .filter((a) => !params.de || a.lido_em >= new Date(params.de).toISOString())
@@ -112,6 +124,13 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
   });
   if (method === 'get' && url === '/estacoes/tipos-sensor') return response(catalogo);
   // Os caminhos reais do gestao-estacoes: /estacoes/estacoes/:id/sensores e /estacoes/sensores/:id/status.
+  const detectadosRoute = url.match(/^\/estacoes\/estacoes\/([^/]+)\/sensores\/detectados$/);
+  if (method === 'get' && detectadosRoute) {
+    const estacaoId = detectadosRoute[1];
+    if (!estacoes.some((item) => item.id === estacaoId)) return fail(404, 'Estação não encontrada.');
+    const cadastrados = new Set(sensores.filter((item) => item.estacao_id === estacaoId).map((item) => item.codigo));
+    return response((recebidos[estacaoId] ?? []).filter((item) => !cadastrados.has(item.codigo)));
+  }
   const collection = url.match(/^\/estacoes\/estacoes\/([^/]+)\/sensores$/);
   if (collection) {
     const estacaoId = collection[1];

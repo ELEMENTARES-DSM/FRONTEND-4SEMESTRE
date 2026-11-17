@@ -1,18 +1,27 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AxiosError, type AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SensorCreateModal } from './SensorCreateModal'
-import { createSensor, getTiposSensor, type Sensor, type TipoSensor } from '../../services/sensoresService'
+import {
+  createSensor,
+  getSensoresDetectados,
+  getTiposSensor,
+  type Sensor,
+  type SensorDetectado,
+  type TipoSensor,
+} from '../../services/sensoresService'
 
 vi.mock('../../services/sensoresService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/sensoresService')>()),
   createSensor: vi.fn(),
   getTiposSensor: vi.fn(),
+  getSensoresDetectados: vi.fn(),
 }))
 
 const ESTACAO = '11111111-1111-4111-8111-111111111111'
 const criarSensor = vi.mocked(createSensor)
 const buscarGrandezas = vi.mocked(getTiposSensor)
+const buscarDetectados = vi.mocked(getSensoresDetectados)
 
 const grandeza = (nome: string, unidade: string, faixa_min: string, faixa_max: string): TipoSensor => ({
   id: `id-${nome}`, nome, unidade, faixa_min, faixa_max, agregacao: 'media',
@@ -59,6 +68,7 @@ function preencher(codigo: string, nome: string) {
 beforeEach(() => {
   vi.resetAllMocks()
   buscarGrandezas.mockResolvedValue(CATALOGO)
+  buscarDetectados.mockResolvedValue([])
 })
 
 describe('SensorCreateModal: catálogo de grandezas (US-39)', () => {
@@ -301,5 +311,111 @@ describe('SensorCreateModal: fator de conversão e offset (US-39)', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent(/fator de conversão e o offset/i)
       expect(criarSensor).not.toHaveBeenCalled()
     }
+  })
+})
+
+const minutosAtras = (minutos: number) => new Date(Date.now() - minutos * 60000).toISOString()
+const detectado = (codigo: string, ultimo_valor: number | null, minutos: number, total = 12): SensorDetectado => ({
+  codigo, total, ultimo_valor, ultima_leitura_em: minutosAtras(minutos),
+})
+
+describe('SensorCreateModal: códigos recebidos da estação (US-39)', () => {
+  it('busca os códigos da estação aberta e mostra "Procurando…" enquanto não chegam', async () => {
+    let resolver: (lista: SensorDetectado[]) => void = () => undefined
+    buscarDetectados.mockReturnValue(new Promise((resolve) => { resolver = resolve }))
+    render(<SensorCreateModal estacaoId={ESTACAO} onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    expect(screen.getByText(/procurando códigos recebidos/i)).toBeInTheDocument()
+    expect(buscarDetectados).toHaveBeenCalledWith(ESTACAO)
+
+    resolver([detectado('PM25', 12, 3)])
+
+    expect(await screen.findByRole('button', { name: /PM25/ })).toBeInTheDocument()
+    expect(screen.queryByText(/procurando códigos recebidos/i)).not.toBeInTheDocument()
+  })
+
+  it('mostra cada código com o último valor, há quanto tempo chegou e quantas leituras', async () => {
+    buscarDetectados.mockResolvedValue([
+      detectado('PM25', 12, 3, 12),
+      detectado('DIR-01', 270, 120, 1),
+      detectado('CHUVA-01', null, 1440, 2),
+    ])
+    await abrir()
+
+    const lista = within(screen.getByRole('region', { name: /códigos recebidos desta estação/i }))
+    expect(await lista.findByRole('button', { name: /PM25/ })).toHaveTextContent('Último valor 12 · Há 3 minutos · 12 leituras')
+    // Com $ no fim: "1 leituras" não pode passar por "1 leitura".
+    expect(lista.getByRole('button', { name: /DIR-01/ })).toHaveTextContent(/Último valor 270 · Há 2 horas · 1 leitura$/)
+    expect(lista.getByRole('button', { name: /CHUVA-01/ })).toHaveTextContent('Último valor — · Há 1 dia · 2 leituras')
+  })
+
+  it('preenche o campo Código ao escolher um código, sem cadastrar nada', async () => {
+    buscarDetectados.mockResolvedValue([detectado('PM25', 12, 3), detectado('PM10', 20, 3)])
+    await abrir()
+
+    fireEvent.click(await screen.findByRole('button', { name: /PM25/ }))
+
+    expect(screen.getByLabelText('Código')).toHaveValue('PM25')
+    expect(screen.getByRole('button', { name: /PM25/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /PM10/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(criarSensor).not.toHaveBeenCalled()
+  })
+
+  it('troca o código preenchido ao escolher outro e deixa a pessoa editar o campo à mão', async () => {
+    buscarDetectados.mockResolvedValue([detectado('PM25', 12, 3), detectado('PM10', 20, 3)])
+    await abrir()
+
+    fireEvent.click(await screen.findByRole('button', { name: /PM25/ }))
+    fireEvent.click(screen.getByRole('button', { name: /PM10/ }))
+    expect(screen.getByLabelText('Código')).toHaveValue('PM10')
+
+    fireEvent.change(screen.getByLabelText('Código'), { target: { value: 'OUTRO-01' } })
+    expect(screen.getByLabelText('Código')).toHaveValue('OUTRO-01')
+    expect(screen.getByRole('button', { name: /PM10/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('cadastra o sensor com exatamente o código escolhido na lista', async () => {
+    buscarDetectados.mockResolvedValue([detectado('PM25', 12, 3)])
+    await abrir()
+    criarSensor.mockResolvedValue(sensorCriado())
+
+    fireEvent.click(await screen.findByRole('button', { name: /PM25/ }))
+    fireEvent.change(screen.getByLabelText('Nome do sensor'), { target: { value: 'Partículas' } })
+    enviar()
+
+    await waitFor(() => expect(criarSensor).toHaveBeenCalledTimes(1))
+    expect(criarSensor.mock.calls[0][1]).toMatchObject({ codigo: 'PM25', nome: 'Partículas' })
+  })
+
+  it('avisa que não há código novo e deixa digitar à mão quando a lista vem vazia', async () => {
+    await abrir()
+
+    expect(await screen.findByText(/nenhum código novo nos últimos 7 dias/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /último valor/i })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Código'), { target: { value: 'DIR-01' } })
+    expect(screen.getByLabelText('Código')).toHaveValue('DIR-01')
+  })
+
+  it('avisa quando não consegue buscar os códigos e o cadastro manual continua funcionando', async () => {
+    buscarDetectados.mockRejectedValue(new Error('rede'))
+    criarSensor.mockResolvedValue(sensorCriado())
+    await abrir()
+
+    expect(await screen.findByText(/não foi possível buscar os códigos recebidos/i)).toBeInTheDocument()
+    preencher('TEMP-01', 'Temperatura')
+    enviar()
+
+    await waitFor(() => expect(criarSensor).toHaveBeenCalledTimes(1))
+  })
+
+  it('não deixa escolher código enquanto o cadastro está sendo enviado', async () => {
+    buscarDetectados.mockResolvedValue([detectado('PM25', 12, 3)])
+    await abrir()
+    criarSensor.mockReturnValue(new Promise(() => undefined))
+
+    preencher('TEMP-01', 'Temperatura')
+    enviar()
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /PM25/ })).toBeDisabled())
   })
 })

@@ -48,6 +48,26 @@ export async function getTiposSensor(): Promise<TipoSensor[]> {
   return response.data;
 }
 
+/** Código que a estação enviou e que ainda não tem sensor cadastrado nela. */
+export interface SensorDetectado {
+  codigo: string;
+  // Leituras desse código nos últimos 7 dias.
+  total: number;
+  ultimo_valor: number | null;
+  // ISO 8601 (UTC).
+  ultima_leitura_em: string;
+}
+
+/**
+ * Códigos que a estação mandou e ainda não viraram sensor. O Administrador escolhe
+ * um deles no cadastro em vez de digitar, e o código cadastrado é cópia do que a
+ * placa envia. Não cria nada.
+ */
+export async function getSensoresDetectados(estacaoId: string): Promise<SensorDetectado[]> {
+  const response = await api.get<SensorDetectado[]>(`/estacoes/estacoes/${estacaoId}/sensores/detectados`);
+  return response.data;
+}
+
 export interface NovoSensor {
   codigo: string;
   nome: string;

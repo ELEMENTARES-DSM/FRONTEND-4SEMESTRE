@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { isAxiosError } from "axios";
-import { createSensor, getTiposSensor, type Sensor, type TipoSensor } from "../../services/sensoresService";
+import {
+  createSensor,
+  getSensoresDetectados,
+  getTiposSensor,
+  type Sensor,
+  type SensorDetectado,
+  type TipoSensor,
+} from "../../services/sensoresService";
+import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import { Modal } from "../../shared/components/Modal";
 import { Input, Select } from "../../shared/components/Field";
 import { Button } from "../../shared/components/Button";
@@ -10,6 +18,10 @@ interface Props {
   estacaoId: string;
   onClose: () => void;
   onCreated: (sensor: Sensor) => void;
+}
+
+function minutosDesde(iso: string): number {
+  return Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
 }
 
 // A API responde 409 (código ou grandeza repetidos) e 400 (grandeza fora do catálogo)
@@ -32,6 +44,11 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
   const [offset, setOffset] = useState("0");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Códigos que a estação já enviou e ainda não têm sensor: o Administrador escolhe um
+  // em vez de digitar, e o código cadastrado é cópia do que a placa manda.
+  const [detectados, setDetectados] = useState<SensorDetectado[]>([]);
+  const [carregandoDetectados, setCarregandoDetectados] = useState(true);
+  const [erroDetectados, setErroDetectados] = useState(false);
   // Cada "Tentar de novo" soma 1 e dispara a busca de novo.
   const [tentativa, setTentativa] = useState(0);
   const submitting = useRef(false);
@@ -55,6 +72,23 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
       ativo = false;
     };
   }, [tentativa]);
+
+  useEffect(() => {
+    let ativo = true;
+    getSensoresDetectados(estacaoId)
+      .then((lista) => {
+        if (ativo) setDetectados(lista);
+      })
+      .catch(() => {
+        if (ativo) setErroDetectados(true);
+      })
+      .finally(() => {
+        if (ativo) setCarregandoDetectados(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [estacaoId]);
 
   function tentarDeNovo() {
     setErroCatalogo(false);
@@ -126,6 +160,35 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
           </div>
         )}
         <fieldset disabled={busy} className="space-y-4">
+          <section aria-label="Códigos recebidos desta estação" className="rounded-lg border border-line p-3">
+            <p className="mb-2 text-xs font-semibold tracking-wide text-muted">Códigos recebidos desta estação, ainda sem sensor</p>
+            {carregandoDetectados && <p className="text-xs text-muted">Procurando códigos recebidos…</p>}
+            {!carregandoDetectados && erroDetectados && (
+              <p className="text-xs text-muted">Não foi possível buscar os códigos recebidos. Digite o código manualmente.</p>
+            )}
+            {!carregandoDetectados && !erroDetectados && detectados.length === 0 && (
+              <p className="text-xs text-muted">Nenhum código novo nos últimos 7 dias. Digite o código manualmente.</p>
+            )}
+            {detectados.length > 0 && (
+              <ul className="flex flex-wrap gap-2">
+                {detectados.map((item) => (
+                  <li key={item.codigo}>
+                    <button
+                      type="button"
+                      aria-pressed={codigo === item.codigo}
+                      onClick={() => setCodigo(item.codigo)}
+                      className={`rounded-md border px-3 py-1.5 text-left text-xs transition ${codigo === item.codigo ? "border-primary bg-primary/15 text-primary" : "border-line hover:border-line-hover"}`}
+                    >
+                      <span className="block font-mono text-[13px] font-semibold">{item.codigo}</span>
+                      <span className="block text-muted">
+                        Último valor {item.ultimo_valor ?? "—"} · {formatRelativeTime(minutosDesde(item.ultima_leitura_em))} · {item.total} {item.total === 1 ? "leitura" : "leituras"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
           <Input label="Código" placeholder="TEMP-01" required maxLength={30} value={codigo} onChange={(event) => setCodigo(event.target.value)} />
           <p className="-mt-2 text-xs text-muted">Use o mesmo código que a placa envia. Ele é único na estação.</p>
           <Input label="Nome do sensor" placeholder="Sensor de temperatura do ar" required maxLength={100} value={nome} onChange={(event) => setNome(event.target.value)} />

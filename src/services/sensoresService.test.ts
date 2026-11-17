@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createSensor, getSensoresByEstacao, getTiposSensor } from './sensoresService'
+import { createSensor, getSensoresByEstacao, getSensoresDetectados, getTiposSensor } from './sensoresService'
 
 const http = vi.hoisted(() => ({
   get: vi.fn(),
@@ -105,5 +105,21 @@ describe('sensoresService: catálogo e unidade da leitura (US-39)', () => {
 
     expect(http.post.mock.calls[0][1]).toHaveProperty('unidade_leitura', 'K')
     expect(http.post.mock.calls[1][1]).not.toHaveProperty('unidade_leitura')
+  })
+})
+
+describe('sensoresService: códigos recebidos sem sensor (US-39)', () => {
+  it('busca os códigos detectados da estação no caminho real e devolve a lista como veio', async () => {
+    const lista = [{ codigo: 'PM25', total: 12, ultimo_valor: 12, ultima_leitura_em: '2026-11-17T17:20:00.000Z' }]
+    http.get.mockResolvedValueOnce({ data: lista })
+
+    await expect(getSensoresDetectados(ESTACAO)).resolves.toEqual(lista)
+    expect(http.get).toHaveBeenCalledWith(`/estacoes/estacoes/${ESTACAO}/sensores/detectados`)
+  })
+
+  it('deixa o erro da busca subir para a tela mostrar o aviso', async () => {
+    http.get.mockRejectedValueOnce(new Error('Network Error'))
+
+    await expect(getSensoresDetectados(ESTACAO)).rejects.toThrow('Network Error')
   })
 })
