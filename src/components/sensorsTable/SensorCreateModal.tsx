@@ -44,13 +44,14 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
   const [offset, setOffset] = useState("0");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  // Códigos que a estação já enviou e ainda não têm sensor: o Administrador escolhe um
-  // em vez de digitar, e o código cadastrado é cópia do que a placa manda.
+  // Códigos que a estação já enviou e ainda não têm sensor. O código só pode ser
+  // escolhido entre eles: assim o cadastrado é cópia exata do que a placa manda.
   const [detectados, setDetectados] = useState<SensorDetectado[]>([]);
   const [carregandoDetectados, setCarregandoDetectados] = useState(true);
   const [erroDetectados, setErroDetectados] = useState(false);
   // Cada "Tentar de novo" soma 1 e dispara a busca de novo.
   const [tentativa, setTentativa] = useState(0);
+  const [tentativaDetectados, setTentativaDetectados] = useState(0);
   const submitting = useRef(false);
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
     return () => {
       ativo = false;
     };
-  }, [estacaoId]);
+  }, [estacaoId, tentativaDetectados]);
 
   function tentarDeNovo() {
     setErroCatalogo(false);
@@ -96,18 +97,34 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
     setTentativa((atual) => atual + 1);
   }
 
+  function atualizarCodigos() {
+    setErroDetectados(false);
+    setCarregandoDetectados(true);
+    setTentativaDetectados((atual) => atual + 1);
+  }
+
   const grandeza = grandezas.find((item) => item.nome === tipo);
+  const semCodigosParaEscolher = carregandoDetectados || erroDetectados || detectados.length === 0;
+  const textoSemCodigos = carregandoDetectados
+    ? "Procurando códigos recebidos…"
+    : erroDetectados
+      ? "Não foi possível buscar os códigos"
+      : "Nenhum código novo nos últimos 7 dias";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current || !grandeza) return;
     setErro(null);
-    if (!codigo.trim() || !nome.trim()) {
-      setErro("Preencha o código e o nome do sensor.");
+    if (!codigo) {
+      setErro("Escolha o código do sensor entre os que a estação já enviou.");
       return;
     }
-    if (codigo.trim().length > 30 || nome.trim().length > 100) {
-      setErro("Use até 30 caracteres no código e 100 no nome.");
+    if (!nome.trim()) {
+      setErro("Preencha o nome do sensor.");
+      return;
+    }
+    if (nome.trim().length > 100) {
+      setErro("Use até 100 caracteres no nome.");
       return;
     }
     if (unidadeLeitura.trim().length > 20) {
@@ -122,7 +139,7 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
     setBusy(true);
     try {
       const sensor = await createSensor(estacaoId, {
-        codigo: codigo.trim(),
+        codigo,
         nome: nome.trim(),
         tipo: grandeza.nome,
         // Só vai quando preenchida: vazio significa que a placa já envia na unidade da grandeza.
@@ -160,37 +177,32 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
           </div>
         )}
         <fieldset disabled={busy} className="space-y-4">
-          <section aria-label="Códigos recebidos desta estação" className="rounded-lg border border-line p-3">
-            <p className="mb-2 text-xs font-semibold tracking-wide text-muted">Códigos recebidos desta estação, ainda sem sensor</p>
-            {carregandoDetectados && <p className="text-xs text-muted">Procurando códigos recebidos…</p>}
-            {!carregandoDetectados && erroDetectados && (
-              <p className="text-xs text-muted">Não foi possível buscar os códigos recebidos. Digite o código manualmente.</p>
-            )}
-            {!carregandoDetectados && !erroDetectados && detectados.length === 0 && (
-              <p className="text-xs text-muted">Nenhum código novo nos últimos 7 dias. Digite o código manualmente.</p>
-            )}
-            {detectados.length > 0 && (
-              <ul className="flex flex-wrap gap-2">
-                {detectados.map((item) => (
-                  <li key={item.codigo}>
-                    <button
-                      type="button"
-                      aria-pressed={codigo === item.codigo}
-                      onClick={() => setCodigo(item.codigo)}
-                      className={`rounded-md border px-3 py-1.5 text-left text-xs transition ${codigo === item.codigo ? "border-primary bg-primary/15 text-primary" : "border-line hover:border-line-hover"}`}
-                    >
-                      <span className="block font-mono text-[13px] font-semibold">{item.codigo}</span>
-                      <span className="block text-muted">
-                        Último valor {item.ultimo_valor ?? "—"} · {formatRelativeTime(minutosDesde(item.ultima_leitura_em))} · {item.total} {item.total === 1 ? "leitura" : "leituras"}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <Input label="Código" placeholder="TEMP-01" required maxLength={30} value={codigo} onChange={(event) => setCodigo(event.target.value)} />
-          <p className="-mt-2 text-xs text-muted">Use o mesmo código que a placa envia. Ele é único na estação.</p>
+          <Select
+            label="Código do sensor"
+            value={codigo}
+            onChange={(event) => setCodigo(event.target.value)}
+            required
+            disabled={semCodigosParaEscolher}
+          >
+            <option value="">{semCodigosParaEscolher ? textoSemCodigos : "Selecione o código recebido"}</option>
+            {detectados.map((item) => (
+              <option key={item.codigo} value={item.codigo}>
+                {item.codigo} — Último valor {item.ultimo_valor ?? "—"} · {formatRelativeTime(minutosDesde(item.ultima_leitura_em))} · {item.total} {item.total === 1 ? "leitura" : "leituras"}
+              </option>
+            ))}
+          </Select>
+          {erroDetectados || (!carregandoDetectados && detectados.length === 0) ? (
+            <div className="-mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+              <span>
+                {erroDetectados
+                  ? "Sem a lista não dá para escolher o código. Verifique a conexão e busque de novo."
+                  : "A estação ainda não enviou nenhum código sem sensor. Confira se ela está ligada e enviando dados, e atualize a lista."}
+              </span>
+              <Button onClick={atualizarCodigos} disabled={carregandoDetectados}>Atualizar lista</Button>
+            </div>
+          ) : (
+            <p className="-mt-2 text-xs text-muted">Só aparecem os códigos que a estação já enviou e que ainda não têm sensor. Assim o código fica igual ao que a placa envia. Ele é único na estação.</p>
+          )}
           <Input label="Nome do sensor" placeholder="Sensor de temperatura do ar" required maxLength={100} value={nome} onChange={(event) => setNome(event.target.value)} />
           <Select label="Grandeza" value={tipo} onChange={(event) => setTipo(event.target.value)} required disabled={carregando || erroCatalogo || grandezas.length === 0}>
             {carregando && <option value="">Carregando grandezas…</option>}
@@ -208,7 +220,7 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
         </fieldset>
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button onClick={onClose} disabled={busy}>Cancelar</Button>
-          <Button type="submit" variant="primary" busy={busy} disabled={carregando || !grandeza}>{busy ? "Salvando…" : "Cadastrar sensor"}</Button>
+          <Button type="submit" variant="primary" busy={busy} disabled={carregando || !grandeza || !codigo}>{busy ? "Salvando…" : "Cadastrar sensor"}</Button>
         </div>
       </form>
     </Modal>

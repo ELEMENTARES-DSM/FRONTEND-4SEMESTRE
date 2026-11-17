@@ -40,6 +40,13 @@ const sensorCriado = (extras: Partial<Sensor> = {}): Sensor => ({
   fator_conversao: 1, offset: 0, status: 'Ativo', ...extras,
 })
 
+const minutosAtras = (minutos: number) => new Date(Date.now() - minutos * 60000).toISOString()
+const detectado = (codigo: string, ultimo_valor: number | null, minutos: number, total = 12): SensorDetectado => ({
+  codigo, total, ultimo_valor, ultima_leitura_em: minutosAtras(minutos),
+})
+// Códigos que a estação "já mandou" na maior parte dos testes; os do cadastro usam estes.
+const CODIGOS_RECEBIDOS = ['TEMP-01', 'TEMP-02', 'TEMP-K', 'DIR-01', 'NEB-01'].map((codigo) => detectado(codigo, 1, 3))
+
 const erroDaApi = (status: number, message?: string) =>
   new AxiosError('falhou', AxiosError.ERR_BAD_REQUEST, undefined, undefined, {
     status, data: message ? { message } : {},
@@ -49,8 +56,10 @@ async function abrir() {
   const onClose = vi.fn()
   const onCreated = vi.fn()
   render(<SensorCreateModal estacaoId={ESTACAO} onClose={onClose} onCreated={onCreated} />)
-  // Espera o catálogo carregar (a grandeza escolhida deixa de ser "Carregando…").
+  // Espera o catálogo carregar (a grandeza escolhida deixa de ser "Carregando…")
+  // e a busca dos códigos recebidos terminar (com lista, vazia ou com erro).
   await waitFor(() => expect(screen.getByLabelText('Grandeza')).not.toBeDisabled())
+  await waitFor(() => expect(screen.queryByRole('option', { name: /procurando códigos recebidos/i })).not.toBeInTheDocument())
   return { onClose, onCreated }
 }
 
@@ -60,15 +69,19 @@ function enviar() {
   fireEvent.submit(screen.getByRole('button', { name: /cadastrar sensor/i }).closest('form') as HTMLFormElement)
 }
 
+function escolherCodigo(codigo: string) {
+  fireEvent.change(screen.getByLabelText('Código do sensor'), { target: { value: codigo } })
+}
+
 function preencher(codigo: string, nome: string) {
-  fireEvent.change(screen.getByLabelText('Código'), { target: { value: codigo } })
+  escolherCodigo(codigo)
   fireEvent.change(screen.getByLabelText('Nome do sensor'), { target: { value: nome } })
 }
 
 beforeEach(() => {
   vi.resetAllMocks()
   buscarGrandezas.mockResolvedValue(CATALOGO)
-  buscarDetectados.mockResolvedValue([])
+  buscarDetectados.mockResolvedValue(CODIGOS_RECEBIDOS)
 })
 
 describe('SensorCreateModal: catálogo de grandezas (US-39)', () => {
@@ -84,6 +97,10 @@ describe('SensorCreateModal: catálogo de grandezas (US-39)', () => {
     resolver(CATALOGO)
 
     await waitFor(() => expect(screen.getByLabelText('Grandeza')).not.toBeDisabled())
+    // Com a grandeza pronta, falta só escolher o código recebido.
+    expect(screen.getByRole('button', { name: /cadastrar sensor/i })).toBeDisabled()
+    await waitFor(() => expect(screen.getByLabelText('Código do sensor')).not.toBeDisabled())
+    escolherCodigo('TEMP-01')
     expect(screen.getByRole('button', { name: /cadastrar sensor/i })).not.toBeDisabled()
   })
 
@@ -91,7 +108,7 @@ describe('SensorCreateModal: catálogo de grandezas (US-39)', () => {
     await abrir()
 
     expect(buscarGrandezas).toHaveBeenCalledTimes(1)
-    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(CATALOGO.map((g) => g.nome))
+    expect(within(screen.getByLabelText('Grandeza')).getAllByRole('option').map((o) => o.textContent)).toEqual(CATALOGO.map((g) => g.nome))
     expect(screen.getByLabelText('Grandeza')).toHaveValue('Temperatura')
     expect(screen.getByLabelText('Unidade de medida')).toHaveValue('°C')
   })
@@ -206,15 +223,36 @@ describe('SensorCreateModal: unidade da leitura (US-39)', () => {
 })
 
 describe('SensorCreateModal: código do sensor (US-39)', () => {
-  it('exige o código, que é o que a placa envia', async () => {
+  it('exige o código, que é o que a placa envia: sem escolher um, o cadastro não segue', async () => {
     await abrir()
 
-    preencher('   ', 'Sensor sem código')
+    fireEvent.change(screen.getByLabelText('Nome do sensor'), { target: { value: 'Sensor sem código' } })
+    expect(screen.getByRole('button', { name: /cadastrar sensor/i })).toBeDisabled()
     enviar()
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/preencha o código e o nome/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/escolha o código do sensor entre os que a estação já enviou/i)
     expect(criarSensor).not.toHaveBeenCalled()
-    expect(screen.getByText(/use o mesmo código que a placa envia/i)).toBeInTheDocument()
+    expect(screen.getByText(/assim o código fica igual ao que a placa envia/i)).toBeInTheDocument()
+  })
+
+  it('exige o nome do sensor', async () => {
+    await abrir()
+
+    preencher('TEMP-01', '   ')
+    enviar()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/preencha o nome do sensor/i)
+    expect(criarSensor).not.toHaveBeenCalled()
+  })
+
+  it('limita o nome a 100 caracteres', async () => {
+    await abrir()
+
+    preencher('TEMP-01', 'n'.repeat(101))
+    enviar()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/até 100 caracteres no nome/i)
+    expect(criarSensor).not.toHaveBeenCalled()
   })
 
   it('mostra a mensagem da API quando o código já existe na estação (409)', async () => {
@@ -314,24 +352,34 @@ describe('SensorCreateModal: fator de conversão e offset (US-39)', () => {
   })
 })
 
-const minutosAtras = (minutos: number) => new Date(Date.now() - minutos * 60000).toISOString()
-const detectado = (codigo: string, ultimo_valor: number | null, minutos: number, total = 12): SensorDetectado => ({
-  codigo, total, ultimo_valor, ultima_leitura_em: minutosAtras(minutos),
-})
-
-describe('SensorCreateModal: códigos recebidos da estação (US-39)', () => {
+describe('SensorCreateModal: código escolhido entre os recebidos da estação (US-39)', () => {
   it('busca os códigos da estação aberta e mostra "Procurando…" enquanto não chegam', async () => {
     let resolver: (lista: SensorDetectado[]) => void = () => undefined
     buscarDetectados.mockReturnValue(new Promise((resolve) => { resolver = resolve }))
     render(<SensorCreateModal estacaoId={ESTACAO} onClose={vi.fn()} onCreated={vi.fn()} />)
 
-    expect(screen.getByText(/procurando códigos recebidos/i)).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /procurando códigos recebidos/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Código do sensor')).toBeDisabled()
     expect(buscarDetectados).toHaveBeenCalledWith(ESTACAO)
 
     resolver([detectado('PM25', 12, 3)])
 
-    expect(await screen.findByRole('button', { name: /PM25/ })).toBeInTheDocument()
-    expect(screen.queryByText(/procurando códigos recebidos/i)).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /PM25/ })).toBeInTheDocument()
+    expect(screen.getByLabelText('Código do sensor')).not.toBeDisabled()
+    expect(screen.queryByRole('option', { name: /procurando códigos recebidos/i })).not.toBeInTheDocument()
+  })
+
+  it('é um campo de seleção: não dá para digitar um código que a estação não enviou', async () => {
+    await abrir()
+
+    const campo = screen.getByLabelText('Código do sensor')
+    expect(campo.tagName).toBe('SELECT')
+    expect(screen.queryByRole('textbox', { name: /código/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Selecione o código recebido' })).toBeInTheDocument()
+    // Um valor que não é opção da lista não fica no campo.
+    fireEvent.change(campo, { target: { value: 'INVENTADO-01' } })
+    expect(campo).toHaveValue('')
+    expect(screen.getByRole('button', { name: /cadastrar sensor/i })).toBeDisabled()
   })
 
   it('mostra cada código com o último valor, há quanto tempo chegou e quantas leituras', async () => {
@@ -342,70 +390,88 @@ describe('SensorCreateModal: códigos recebidos da estação (US-39)', () => {
     ])
     await abrir()
 
-    const lista = within(screen.getByRole('region', { name: /códigos recebidos desta estação/i }))
-    expect(await lista.findByRole('button', { name: /PM25/ })).toHaveTextContent('Último valor 12 · Há 3 minutos · 12 leituras')
+    const campo = within(screen.getByLabelText('Código do sensor'))
+    expect(campo.getByRole('option', { name: /PM25/ })).toHaveTextContent('PM25 — Último valor 12 · Há 3 minutos · 12 leituras')
     // Com $ no fim: "1 leituras" não pode passar por "1 leitura".
-    expect(lista.getByRole('button', { name: /DIR-01/ })).toHaveTextContent(/Último valor 270 · Há 2 horas · 1 leitura$/)
-    expect(lista.getByRole('button', { name: /CHUVA-01/ })).toHaveTextContent('Último valor — · Há 1 dia · 2 leituras')
+    expect(campo.getByRole('option', { name: /DIR-01/ })).toHaveTextContent(/DIR-01 — Último valor 270 · Há 2 horas · 1 leitura$/)
+    expect(campo.getByRole('option', { name: /CHUVA-01/ })).toHaveTextContent('CHUVA-01 — Último valor — · Há 1 dia · 2 leituras')
   })
 
-  it('preenche o campo Código ao escolher um código, sem cadastrar nada', async () => {
+  it('escolher um código só o seleciona: nada é cadastrado até confirmar', async () => {
     buscarDetectados.mockResolvedValue([detectado('PM25', 12, 3), detectado('PM10', 20, 3)])
     await abrir()
 
-    fireEvent.click(await screen.findByRole('button', { name: /PM25/ }))
-
-    expect(screen.getByLabelText('Código')).toHaveValue('PM25')
-    expect(screen.getByRole('button', { name: /PM25/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /PM10/ })).toHaveAttribute('aria-pressed', 'false')
+    escolherCodigo('PM25')
+    expect(screen.getByLabelText('Código do sensor')).toHaveValue('PM25')
+    escolherCodigo('PM10')
+    expect(screen.getByLabelText('Código do sensor')).toHaveValue('PM10')
     expect(criarSensor).not.toHaveBeenCalled()
   })
 
-  it('troca o código preenchido ao escolher outro e deixa a pessoa editar o campo à mão', async () => {
-    buscarDetectados.mockResolvedValue([detectado('PM25', 12, 3), detectado('PM10', 20, 3)])
+  it('cadastra o sensor com exatamente o código escolhido na lista', async () => {
+    buscarDetectados.mockResolvedValue([detectado('pm25', 12, 3)])
     await abrir()
+    criarSensor.mockResolvedValue(sensorCriado())
 
-    fireEvent.click(await screen.findByRole('button', { name: /PM25/ }))
-    fireEvent.click(screen.getByRole('button', { name: /PM10/ }))
-    expect(screen.getByLabelText('Código')).toHaveValue('PM10')
+    preencher('pm25', 'Partículas')
+    enviar()
 
-    fireEvent.change(screen.getByLabelText('Código'), { target: { value: 'OUTRO-01' } })
-    expect(screen.getByLabelText('Código')).toHaveValue('OUTRO-01')
-    expect(screen.getByRole('button', { name: /PM10/ })).toHaveAttribute('aria-pressed', 'false')
+    await waitFor(() => expect(criarSensor).toHaveBeenCalledTimes(1))
+    // Em minúsculas, como a placa manda: não é corrigido nem alterado.
+    expect(criarSensor.mock.calls[0][1]).toMatchObject({ codigo: 'pm25', nome: 'Partículas' })
   })
 
-  it('cadastra o sensor com exatamente o código escolhido na lista', async () => {
+  describe('quando não há código para escolher', () => {
+    it('avisa que a lista veio vazia, bloqueia o campo e o cadastro e não oferece digitar', async () => {
+      buscarDetectados.mockResolvedValue([])
+      await abrir()
+
+      expect(screen.getByRole('option', { name: /nenhum código novo nos últimos 7 dias/i })).toBeInTheDocument()
+      expect(screen.getByText(/a estação ainda não enviou nenhum código sem sensor/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Código do sensor')).toBeDisabled()
+      expect(screen.getByRole('button', { name: /cadastrar sensor/i })).toBeDisabled()
+      expect(screen.queryByRole('textbox', { name: /código/i })).not.toBeInTheDocument()
+    })
+
+    it('avisa quando não consegue buscar os códigos, bloqueia o cadastro e busca de novo ao atualizar', async () => {
+      buscarDetectados.mockRejectedValueOnce(new Error('rede'))
+      await abrir()
+
+      expect(screen.getByRole('option', { name: /não foi possível buscar os códigos/i })).toBeInTheDocument()
+      expect(screen.getByText(/sem a lista não dá para escolher o código/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Código do sensor')).toBeDisabled()
+      expect(screen.getByRole('button', { name: /cadastrar sensor/i })).toBeDisabled()
+
+      fireEvent.click(screen.getByRole('button', { name: /atualizar lista/i }))
+
+      await waitFor(() => expect(screen.getByLabelText('Código do sensor')).not.toBeDisabled())
+      expect(buscarDetectados).toHaveBeenCalledTimes(2)
+      expect(screen.queryByText(/sem a lista não dá para escolher o código/i)).not.toBeInTheDocument()
+      escolherCodigo('TEMP-01')
+      expect(screen.getByRole('button', { name: /cadastrar sensor/i })).not.toBeDisabled()
+    })
+
+    it('mostra os códigos que chegaram depois quando a lista vazia é atualizada', async () => {
+      buscarDetectados.mockResolvedValueOnce([])
+      await abrir()
+      buscarDetectados.mockResolvedValueOnce([detectado('PM25', 12, 1)])
+
+      fireEvent.click(screen.getByRole('button', { name: /atualizar lista/i }))
+
+      expect(await screen.findByRole('option', { name: /PM25/ })).toBeInTheDocument()
+      expect(screen.getByLabelText('Código do sensor')).not.toBeDisabled()
+    })
+  })
+
+  it('mostra a mensagem da API quando o código escolhido já foi cadastrado por outra pessoa (409)', async () => {
     buscarDetectados.mockResolvedValue([detectado('PM25', 12, 3)])
     await abrir()
-    criarSensor.mockResolvedValue(sensorCriado())
+    criarSensor.mockRejectedValue(erroDaApi(409, 'Já existe um sensor com o código "PM25" nesta estação.'))
 
-    fireEvent.click(await screen.findByRole('button', { name: /PM25/ }))
-    fireEvent.change(screen.getByLabelText('Nome do sensor'), { target: { value: 'Partículas' } })
+    preencher('PM25', 'Partículas')
     enviar()
 
-    await waitFor(() => expect(criarSensor).toHaveBeenCalledTimes(1))
-    expect(criarSensor.mock.calls[0][1]).toMatchObject({ codigo: 'PM25', nome: 'Partículas' })
-  })
-
-  it('avisa que não há código novo e deixa digitar à mão quando a lista vem vazia', async () => {
-    await abrir()
-
-    expect(await screen.findByText(/nenhum código novo nos últimos 7 dias/i)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /último valor/i })).not.toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Código'), { target: { value: 'DIR-01' } })
-    expect(screen.getByLabelText('Código')).toHaveValue('DIR-01')
-  })
-
-  it('avisa quando não consegue buscar os códigos e o cadastro manual continua funcionando', async () => {
-    buscarDetectados.mockRejectedValue(new Error('rede'))
-    criarSensor.mockResolvedValue(sensorCriado())
-    await abrir()
-
-    expect(await screen.findByText(/não foi possível buscar os códigos recebidos/i)).toBeInTheDocument()
-    preencher('TEMP-01', 'Temperatura')
-    enviar()
-
-    await waitFor(() => expect(criarSensor).toHaveBeenCalledTimes(1))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Já existe um sensor com o código "PM25" nesta estação.')
   })
 
   it('não deixa escolher código enquanto o cadastro está sendo enviado', async () => {
@@ -413,9 +479,9 @@ describe('SensorCreateModal: códigos recebidos da estação (US-39)', () => {
     await abrir()
     criarSensor.mockReturnValue(new Promise(() => undefined))
 
-    preencher('TEMP-01', 'Temperatura')
+    preencher('PM25', 'Partículas')
     enviar()
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /PM25/ })).toBeDisabled())
+    await waitFor(() => expect(screen.getByLabelText('Código do sensor')).toBeDisabled())
   })
 })
