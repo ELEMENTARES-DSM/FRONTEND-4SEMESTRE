@@ -13,6 +13,8 @@ export default defineConfig({
       "/usuarios": "http://localhost:80",
       "/estacoes": "http://localhost:80",
       "/alertas": "http://localhost:80",
+      "/analise": "http://localhost:80",
+      "/relatorios": "http://localhost:80",
     },
   },
   test: {
