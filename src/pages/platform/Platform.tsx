@@ -1,105 +1,98 @@
 import { isAxiosError } from "axios";
-import { StationsTable } from "../../components/stationsTable/StationsTable";
-import { useEffect, useState } from "react";
-import { Button } from "../../shared/components/Button";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthorization } from "../../auth/useAuthorization";
-
 import { KpiCards } from "../../components/kpiCards/KpiCards";
 import { KpiCardsSkeleton } from "../../components/kpiCards/KpiCardsSkeleton";
+import { StationsTable } from "../../components/stationsTable/StationsTable";
 import {
-  getEstacoesStatus,
+  getVisaoGeralEstacoes,
   type EstacaoStatus,
+  type ResumoEstacoes,
 } from "../../services/estacoesService";
+import { Button } from "../../shared/components/Button";
+
+const POLLING_MS = 5 * 60 * 1000;
 
 export function Platform() {
-  // Sem stations.view a API responde 403: a tela não consulta e mostra um estado neutro.
-  const { canViewStations } = useAuthorization();
+  const { papel, canCreateStation, canToggleStation } = useAuthorization();
   const [estacoes, setEstacoes] = useState<EstacaoStatus[]>([]);
+  const [resumo, setResumo] = useState<ResumoEstacoes | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
+  const firstLoad = useRef(true);
+
+  const isAdmin = papel?.toLowerCase() === "admin" || papel?.toLowerCase() === "administrador";
+  const isPesquisador = papel?.toLowerCase() === "researcher" || papel?.toLowerCase() === "pesquisador";
+  const podeGerenciar = !isPesquisador && (isAdmin || canCreateStation || canToggleStation);
+
+  const carregarEstacoes = useCallback(async () => {
+    if (firstLoad.current) setLoading(true);
+    setErro(null);
+
+    try {
+      if (!navigator.onLine) {
+        setErro("Sem conexão com a rede. Verifique sua internet e tente novamente.");
+        return;
+      }
+      const data = await getVisaoGeralEstacoes();
+      setEstacoes(data.estacoes);
+      setResumo(data.resumo);
+    } catch (error) {
+      if (isAxiosError(error) && (error.response?.status === 403 || error.response?.status === 401)) {
+        setErro("Você não possui permissão para visualizar estas estações.");
+      } else if (isAxiosError(error) && !error.response) {
+        setErro("Sem conexão com a rede. Verifique sua internet e tente novamente.");
+      } else {
+        setErro("Erro no servidor ao carregar as estações. Tente novamente em instantes.");
+      }
+    } finally {
+      setLoading(false);
+      firstLoad.current = false;
+    }
+  }, []);
 
   useEffect(() => {
-    if (!canViewStations) return;
-    let ativo = true;
-
-    async function carregarEstacoes() {
-      try {
-        setLoading(true);
-        setErro(null);
-        const data = await getEstacoesStatus();
-
-        if (ativo) {
-          setEstacoes(data);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar estações:", error);
-        if (ativo) setErro(isAxiosError(error) && error.response?.status === 401
-          ? "Autenticação necessária. Entre novamente para carregar as estações."
-          : "Não foi possível carregar as estações. Verifique a conexão com a API e tente novamente.");
-      } finally {
-        if (ativo) {
-          setLoading(false);
-        }
-      }
-    }
-
     carregarEstacoes();
+    const timer = window.setInterval(carregarEstacoes, POLLING_MS);
+    return () => window.clearInterval(timer);
+  }, [carregarEstacoes, reload]);
 
-    return () => {
-      ativo = false;
-    };
-  }, [reload, canViewStations]);
-
-  const total = estacoes.length;
-
-  const ativas = estacoes.filter(
-    (estacao) => estacao.status_operacional === "Ativa",
-  ).length;
-
-  const comFalha = estacoes.filter(
-    (estacao) => estacao.status_operacional === "Com Falha",
-  ).length;
-
-  const inativas = estacoes.filter(
-    (estacao) => estacao.status_operacional === "Inativa",
-  ).length;
-
-  if (!canViewStations) {
-    return (
-      <main className="min-h-screen bg-[#0B1120] p-6">
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">Plataforma</h1>
-        </header>
-        <section className="rounded-lg border border-line bg-base-200 p-4 text-sm text-muted">
-          Os indicadores e a tabela de estações são para gestores públicos e administradores.
-          Seu perfil não tem painéis nesta tela.
-        </section>
-      </main>
-    );
-  }
+  const ativas = resumo?.ativas ?? estacoes.filter((e) => e.status_operacional === "Ativa").length;
+  const comFalha = resumo?.com_falha ?? estacoes.filter((e) => e.status_operacional === "Com Falha").length;
+  const inativas = resumo?.inativas ?? estacoes.filter((e) => e.status_operacional === "Inativa").length;
+  const soma = ativas + comFalha + inativas;
+  const total = resumo?.total === soma ? resumo.total : soma;
 
   return (
     <main className="min-h-screen bg-[#0B1120] p-6">
-      <header className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">Plataforma</h1>
+      <header className="mb-6">
+        <h1 className="text-xl font-semibold">Visão Geral</h1>
       </header>
+
       {loading ? (
         <KpiCardsSkeleton />
       ) : erro ? (
         <div role="alert" className="rounded-lg border border-error/40 bg-error/10 p-4 text-error">
           <p className="mb-3">{erro}</p>
-          <Button onClick={() => setReload((value) => value + 1)}>Tentar novamente</Button>
+          <Button onClick={() => { firstLoad.current = true; setReload((v) => v + 1); }}>
+            Tentar novamente
+          </Button>
+        </div>
+      ) : estacoes.length === 0 ? (
+        <div className="rounded-lg border border-line bg-base-200 p-6 text-center text-sm text-muted">
+          Nenhuma estação encontrada.
         </div>
       ) : (
         <>
-        <KpiCards
-          total={total}
-          ativas={ativas}
-          comFalha={comFalha}
-          inativas={inativas}
-        />
-        <div className="mt-6"><StationsTable estacoes={estacoes} /></div>
+          <KpiCards total={total} ativas={ativas} comFalha={comFalha} inativas={inativas} />
+          <div className="mt-6">
+            <StationsTable
+              estacoes={estacoes}
+              isAdmin={isAdmin}
+              podeGerenciar={podeGerenciar}
+            />
+          </div>
         </>
       )}
     </main>
