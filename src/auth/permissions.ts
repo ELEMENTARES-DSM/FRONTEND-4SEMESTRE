@@ -7,6 +7,8 @@ export type Permission =
   | 'stations.toggle-status'
   | 'alerts.manage'
   | 'alarms.view'
+  | 'grandezas.view'
+  | 'grandezas.manage'
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ADMINISTRADOR: [
@@ -16,6 +18,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'stations.toggle-status',
     'alerts.manage',
     'alarms.view',
+    'grandezas.view',
+    'grandezas.manage',
   ],
   GESTOR_PUBLICO: [
     'territory.access',
@@ -24,6 +28,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'stations.toggle-status',
     'alerts.manage',
     'alarms.view',
+    'grandezas.view',
   ],
   PESQUISADOR: [],
 }

@@ -182,6 +182,57 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
     estacoes,
   });
   if (method === 'get' && url === '/estacoes/tipos-sensor') return response(catalogo);
+  // Mesmas regras da API (US-39): nome único, faixa coerente, unidade travada e exclusão só sem uso.
+  const usaGrandeza = (nome: string) => sensores.some((item) => item.tipo === nome);
+  const dadosDaGrandeza = (corpo: unknown) => (typeof corpo === 'string' ? JSON.parse(corpo) : corpo) as Record<string, unknown>;
+  if (method === 'post' && url === '/estacoes/tipos-sensor') {
+    const dados = dadosDaGrandeza(config.data);
+    if (catalogo.some((item) => item.nome === dados.nome)) {
+      return fail(409, `Já existe uma grandeza com o nome "${dados.nome}" no catálogo.`);
+    }
+    if (Number(dados.faixa_min) >= Number(dados.faixa_max)) {
+      return fail(400, 'faixa_min deve ser menor que faixa_max.');
+    }
+    const criada = {
+      id: crypto.randomUUID(),
+      nome: String(dados.nome),
+      unidade: String(dados.unidade),
+      faixa_min: Number(dados.faixa_min).toFixed(2),
+      faixa_max: Number(dados.faixa_max).toFixed(2),
+      agregacao: (dados.agregacao ?? 'media') as string,
+    };
+    catalogo.push(criada as (typeof catalogo)[number]);
+    return response(criada, 201);
+  }
+  const grandezaRoute = url.match(/^\/estacoes\/tipos-sensor\/([^/]+)$/);
+  if (grandezaRoute && (method === 'put' || method === 'delete')) {
+    const indice = catalogo.findIndex((item) => item.id === grandezaRoute[1]);
+    if (indice < 0) return fail(404, 'Grandeza não encontrada no catálogo.');
+    const atual = catalogo[indice];
+    if (method === 'delete') {
+      if (usaGrandeza(atual.nome)) {
+        return fail(409, 'Esta grandeza é usada por sensores e não pode ser excluída.');
+      }
+      catalogo.splice(indice, 1);
+      return response(null, 204);
+    }
+    const dados = dadosDaGrandeza(config.data);
+    const unidadeMuda = dados.unidade !== undefined && dados.unidade !== atual.unidade;
+    if (unidadeMuda && usaGrandeza(atual.nome)) {
+      return fail(409, 'A unidade não pode ser alterada: esta grandeza já é usada por sensores.');
+    }
+    const min = dados.faixa_min !== undefined ? Number(dados.faixa_min) : Number(atual.faixa_min);
+    const max = dados.faixa_max !== undefined ? Number(dados.faixa_max) : Number(atual.faixa_max);
+    if (min >= max) return fail(400, 'faixa_min deve ser menor que faixa_max.');
+    catalogo[indice] = {
+      ...atual,
+      unidade: dados.unidade !== undefined ? String(dados.unidade) : atual.unidade,
+      faixa_min: min.toFixed(2),
+      faixa_max: max.toFixed(2),
+      agregacao: (dados.agregacao ?? atual.agregacao) as string,
+    } as (typeof catalogo)[number];
+    return response(catalogo[indice]);
+  }
   // Os caminhos reais do gestao-estacoes: /estacoes/estacoes/:id/sensores e /estacoes/sensores/:id/status.
   const detectadosRoute = url.match(/^\/estacoes\/estacoes\/([^/]+)\/sensores\/detectados$/);
   if (method === 'get' && detectadosRoute) {

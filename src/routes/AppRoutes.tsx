@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../AppLayout";
 import { Usuarios } from "../pages/Usuarios/Usuarios";
 import { Alarmes } from "../pages/Alarmes/Alarmes";
+import { Grandezas } from "../pages/Grandezas/Grandezas";
 
 export function AppRoutes() {
   return (
@@ -22,6 +23,14 @@ export function AppRoutes() {
               <Usuarios />
             </ProtectedRoute>
           } />
+          <Route
+            path="/platform/grandezas"
+            element={
+              <ProtectedRoute requiredPermission="grandezas.view">
+                <Grandezas />
+              </ProtectedRoute>
+            }
+          />
           <Route
           path="/platform/territory"
           element={
