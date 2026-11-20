@@ -356,15 +356,9 @@ export function Usuarios() {
     paginaAtual * pageSize,
   )
 
-  const coresPapel: Record<string, string> = {
-    ADMINISTRADOR: 'border-primary/35 bg-primary/15 text-primary',
-    GESTOR_PUBLICO: 'border-secondary/35 bg-secondary/15 text-secondary',
-    PESQUISADOR: 'border-accent/35 bg-accent/15 text-accent',
-  }
-
   function papelVisual(nome: string) {
     return (
-      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide ${coresPapel[nome] ?? 'border-line bg-base-300 text-muted'}`}>
+      <span className="text-[13px] text-muted">
         {nome.replaceAll('_', ' ')}
       </span>
     )
@@ -372,10 +366,28 @@ export function Usuarios() {
 
   function statusVisual(ativo: boolean) {
     return (
-      <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${ativo ? 'text-success' : 'text-muted'}`}>
-        <span className={`size-[7px] rounded-full ${ativo ? 'animate-dot bg-success' : 'bg-muted'}`} />
+      <span className="text-[13px] font-medium text-muted">
         {ativo ? 'Ativo' : 'Inativo'}
       </span>
+    )
+  }
+
+  function botaoExcluir(u: Usuario) {
+    return (
+      <button
+        type="button"
+        disabled={busyId === u.id}
+        onClick={() =>
+          abrirDialogo({
+            tipo: 'excluir',
+            usuario: u,
+          })
+        }
+        aria-label={`Excluir ${u.nome}`}
+        className="inline-flex size-[30px] items-center justify-center rounded-md border-0 bg-transparent text-muted transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Icon name="trash" size={15} />
+      </button>
     )
   }
 
@@ -383,24 +395,28 @@ export function Usuarios() {
     {
       key: 'nome',
       header: 'Nome',
-      className: 'relative font-medium before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:scale-y-0 before:bg-primary before:shadow-[0_0_14px_3px_#00A6E688] before:transition-transform group-hover:before:scale-y-100 group-focus:before:scale-y-100',
+      className: 'relative truncate font-medium before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:scale-y-0 before:bg-primary before:shadow-[0_0_14px_3px_#00A6E688] before:transition-transform group-hover:before:scale-y-100 group-focus:before:scale-y-100',
     },
 
     {
       key: 'email',
       header: 'E-mail',
-      className: 'font-mono text-[13px] text-muted',
+      className: 'truncate font-mono text-[13px] text-muted',
     },
 
     {
       key: 'papel_nome',
       header: 'Papel',
+      width: '150px',
+      className: 'whitespace-nowrap',
       render: (u) => papelVisual(u.papel_nome),
     },
 
     {
       key: 'municipio',
       header: 'Município',
+      width: '140px',
+      className: 'truncate',
       render: (u) =>
         u.municipio ?? (
           <span className="text-muted">
@@ -412,9 +428,10 @@ export function Usuarios() {
     {
       key: 'esta_ativo',
       header: 'Status',
+      width: '136px',
+      className: 'whitespace-nowrap',
       render: (u) => (
-        <div className="flex items-center gap-3">
-          {statusVisual(u.esta_ativo)}
+        <div className="flex items-center gap-2.5">
           <Toggle
             checked={u.esta_ativo}
             busy={busyId === u.id}
@@ -423,7 +440,7 @@ export function Usuarios() {
             } ${u.nome}`}
             onChange={() => void alternarStatus(u)}
           />
-
+          {statusVisual(u.esta_ativo)}
         </div>
       ),
     },
@@ -431,22 +448,11 @@ export function Usuarios() {
     {
       key: 'acoes',
       header: 'Ações',
+      width: '76px',
       align: 'right',
       render: (u) => (
         <div className="flex justify-end">
-          <Button
-            variant="danger"
-            disabled={busyId === u.id}
-            onClick={() =>
-              abrirDialogo({
-                tipo: 'excluir',
-                usuario: u,
-              })
-            }
-            aria-label={`Excluir ${u.nome}`}
-          >
-            <Icon name="trash" size={14} />
-          </Button>
+          {botaoExcluir(u)}
         </div>
       ),
     },
@@ -502,12 +508,13 @@ export function Usuarios() {
         </p>
       )}
 
-      <section aria-label="Lista de usuários" aria-busy={loading} className="overflow-hidden rounded-[10px] border border-line bg-base-200">
+      <section aria-label="Lista de usuários" aria-busy={loading} className="overflow-hidden rounded-xl border border-line bg-base-200">
         <Table
           columns={colunas}
           data={visiveis}
           loading={loading}
           onRowClick={(u) => { if (busyId !== u.id) void abrirEdicao(u) }}
+          className="min-w-[840px] table-fixed"
           containerClassName="hidden rounded-none border-0 bg-transparent shadow-none sm:block"
           emptyMessage={erro ? 'Não foi possível carregar os usuários.' : 'Nenhum usuário encontrado.'}
         />
@@ -527,16 +534,17 @@ export function Usuarios() {
                   <p className="truncate text-sm font-semibold">{u.nome}</p>
                   <p className="truncate font-mono text-xs text-muted">{u.email}</p>
                 </div>
-                <div className="pointer-events-auto relative z-20"><Toggle checked={u.esta_ativo} busy={busyId === u.id} label={`${u.esta_ativo ? 'Desativar' : 'Ativar'} ${u.nome}`} onChange={() => void alternarStatus(u)} /></div>
+                <div className="pointer-events-auto relative z-20 flex items-center gap-2">
+                  <Toggle checked={u.esta_ativo} busy={busyId === u.id} label={`${u.esta_ativo ? 'Desativar' : 'Ativar'} ${u.nome}`} onChange={() => void alternarStatus(u)} />
+                  {statusVisual(u.esta_ativo)}
+                </div>
               </div>
-              <div className="pointer-events-none relative z-10 mt-3 flex flex-wrap items-center gap-2">{papelVisual(u.papel_nome)}{statusVisual(u.esta_ativo)}</div>
+              <div className="pointer-events-none relative z-10 mt-3 flex flex-wrap items-center gap-2">{papelVisual(u.papel_nome)}</div>
               <p className="pointer-events-none relative z-10 mt-3 text-xs text-muted">Município: <span className="text-base-content">{u.municipio ?? 'Não se aplica'}</span>
               </p>
               <div className="pointer-events-none relative z-10 mt-4 flex justify-end border-t border-line pt-3">
                 <div className="pointer-events-auto relative z-20">
-                <Button variant="danger" disabled={busyId === u.id} onClick={() => abrirDialogo({ tipo: 'excluir', usuario: u })} aria-label={`Excluir ${u.nome}`}>
-                  <Icon name="trash" size={14} />
-                </Button>
+                  {botaoExcluir(u)}
                 </div>
               </div>
             </article>
