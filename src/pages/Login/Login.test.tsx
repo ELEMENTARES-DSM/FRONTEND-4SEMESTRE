@@ -88,4 +88,12 @@ describe('Login', () => {
       .not.toBeInTheDocument()
     expect(authMock.login).not.toHaveBeenCalled()
   })
+
+  it('exibe link para a tela de cadastro com rota /cadastro', () => {
+    renderLogin()
+
+    const linkCadastro = screen.getByRole('link', { name: /Cadastre-se como munícipe/i })
+    expect(linkCadastro).toBeInTheDocument()
+    expect(linkCadastro).toHaveAttribute('href', '/cadastro')
+  })
 })

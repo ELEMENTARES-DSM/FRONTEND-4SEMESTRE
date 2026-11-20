@@ -82,4 +82,36 @@ describe('Menu e rotas por perfil (TASK 24.04)', () => {
     await waitFor(() => expect(chamou(`/estacoes/estacoes/${ESTACAO}/sensores`)).toBe(true))
     expect(screen.getByTestId('location')).toHaveTextContent(`/platform/estacoes/${ESTACAO}`)
   })
+
+  describe('Cenário 8 da US-42 (MUNICIPE)', () => {
+    it('o MUNICIPE não vê itens de gestão (Usuários, Estações, Alertas, Alarmes) no menu', () => {
+      renderComPerfil('MUNICIPE')
+      const menu = within(screen.getByRole('navigation'))
+
+      expect(menu.getByRole('button', { name: 'Visão Geral' })).toBeInTheDocument()
+      expect(menu.queryByRole('button', { name: 'Usuários' })).not.toBeInTheDocument()
+      expect(menu.queryByRole('button', { name: 'Estações' })).not.toBeInTheDocument()
+      expect(menu.queryByRole('button', { name: 'Alertas' })).not.toBeInTheDocument()
+      expect(menu.queryByRole('button', { name: 'Alarmes' })).not.toBeInTheDocument()
+    })
+
+    it('o MUNICIPE recebe aviso de sem permissão e é redirecionado ao tentar acessar /platform/usuarios diretamente', async () => {
+      renderComPerfil('MUNICIPE', '/platform/usuarios')
+
+      await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/platform$/))
+      expect(
+        await screen.findByText(/Acesso negado\. Seu perfil não tem permissão para acessar essa página\./i),
+      ).toBeInTheDocument()
+    })
+
+    it('o MUNICIPE recebe aviso de sem permissão e é redirecionado ao tentar acessar rotas com permissão restrita (/alerts)', async () => {
+      renderComPerfil('MUNICIPE', '/alerts')
+
+      await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/platform$/))
+      expect(
+        await screen.findByText(/Acesso negado\. Seu perfil não tem permissão para acessar essa página\./i),
+      ).toBeInTheDocument()
+      expect(chamou('/alertas/regras-alerta')).toBe(false)
+    })
+  })
 })

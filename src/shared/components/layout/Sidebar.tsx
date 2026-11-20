@@ -14,6 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMINISTRADOR: 'Administrador',
   GESTOR_PUBLICO: 'Gestor Público',
   PESQUISADOR: 'Pesquisador',
+  MUNICIPE: 'Munícipe',
 };
 
 export function LogoMark({ size = 28 }: { size?: number }) {

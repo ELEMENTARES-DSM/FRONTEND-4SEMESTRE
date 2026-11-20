@@ -1,4 +1,4 @@
-export type Role = 'ADMINISTRADOR' | 'GESTOR_PUBLICO' | 'PESQUISADOR'
+export type Role = 'ADMINISTRADOR' | 'GESTOR_PUBLICO' | 'PESQUISADOR' | 'MUNICIPE'
 
 export type Permission =
   | 'territory.access'
@@ -26,6 +26,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'alarms.view',
   ],
   PESQUISADOR: [],
+  MUNICIPE: [],
 }
 
 export function getPermissionsForRole(papel?: string | null): readonly Permission[] {
