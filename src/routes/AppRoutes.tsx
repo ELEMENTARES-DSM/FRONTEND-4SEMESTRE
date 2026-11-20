@@ -5,6 +5,7 @@ import { StationDetails } from "../pages/StationDetail/StationDetail";
 import DevLib from "../pages/DevLib";
 import { Alerts } from "../pages/Alerts";
 import { Login } from "../pages/Login/Login";
+import { Cadastro } from "../pages/Cadastro/Cadastro";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../AppLayout";
 import { Usuarios } from "../pages/Usuarios/Usuarios";
@@ -70,6 +71,7 @@ export function AppRoutes() {
       </Route>
 
       <Route path="/login" element={<Login />} />
+      <Route path="/cadastro" element={<Cadastro />} />
       <Route path="/devlib" element={<DevLib />} />
     </Routes>
   );

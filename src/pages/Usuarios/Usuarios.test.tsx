@@ -165,4 +165,69 @@ describe('Gestão de Usuários', () => {
     expect(await screen.findAllByText('Nenhum usuário encontrado.')).toHaveLength(2)
     expect(api.excluirUsuario).toHaveBeenCalledWith('u-1')
   })
+
+  it('exibe papel sem badge colorido, status neutro após o toggle e botão excluir discreto', async () => {
+    renderPage()
+    const tabela = await screen.findByRole('table')
+    const linha = within(tabela).getByText('Ana Real').closest('tr')!
+
+    const papel = within(linha).getByText('ADMINISTRADOR')
+    expect(papel).toHaveClass('text-muted')
+    expect(papel).not.toHaveClass('rounded-full')
+
+    const status = within(linha).getByText('Ativo')
+    expect(status).toHaveClass('text-muted')
+    expect(status).not.toHaveClass('text-success')
+    expect(status.querySelector('span')).toBeNull()
+
+    const toggle = within(linha).getByRole('switch', { name: 'Desativar Ana Real' })
+    expect(toggle.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const excluirBtn = within(linha).getByRole('button', { name: 'Excluir Ana Real' })
+    expect(excluirBtn).toHaveClass('size-[30px]', 'border-0', 'bg-transparent', 'text-muted', 'hover:text-error')
+  })
+
+  it('permite trocar o papel de um munícipe na edição e atualiza a tabela', async () => {
+    const municipe = {
+      id: 'u-2',
+      nome: 'Ana Munícipe',
+      email: 'ana@municipe.com',
+      papel_id: 'papel-municipe',
+      papel_nome: 'MUNICIPE',
+      municipio: 'São José dos Campos',
+      esta_ativo: true,
+    }
+    const papeisComMunicipe = [
+      ...papeis,
+      { id: 'papel-municipe', nome: 'MUNICIPE', descricao: 'Munícipe.' },
+    ]
+    api.listarUsuarios.mockResolvedValueOnce([municipe])
+    api.listarPapeis.mockResolvedValueOnce(papeisComMunicipe)
+    api.buscarUsuario.mockResolvedValueOnce(municipe)
+    api.atualizarUsuario.mockResolvedValueOnce({
+      ...municipe,
+      papel_id: 'papel-gestor',
+      municipio: 'São José dos Campos',
+    })
+
+    renderPage()
+    const tabela = await screen.findByRole('table')
+    const linha = within(tabela).getByText('Ana Munícipe').closest('tr')!
+    expect(within(linha).getByText('MUNICIPE')).toBeInTheDocument()
+
+    fireEvent.click(linha)
+    const dialogo = await screen.findByRole('dialog', { name: 'Editar usuário' })
+    fireEvent.change(within(dialogo).getByRole('combobox', { name: 'Papel' }), {
+      target: { value: 'papel-gestor' },
+    })
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }))
+
+    expect(await within(tabela).findByText('GESTOR PUBLICO')).toBeInTheDocument()
+    expect(api.atualizarUsuario).toHaveBeenCalledWith('u-2', {
+      nome: 'Ana Munícipe',
+      email: 'ana@municipe.com',
+      papel_id: 'papel-gestor',
+      municipio: 'São José dos Campos',
+    })
+  })
 })
