@@ -1,7 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { isAxiosError } from "axios";
-import { createSensor, tiposSensor, type NovoSensor, type Sensor } from "../../services/sensoresService";
+import {
+  createSensor,
+  getSensoresDetectados,
+  getTiposSensor,
+  type Sensor,
+  type SensorDetectado,
+  type TipoSensor,
+} from "../../services/sensoresService";
+import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import { Modal } from "../../shared/components/Modal";
 import { Input, Select } from "../../shared/components/Field";
 import { Button } from "../../shared/components/Button";
@@ -12,46 +20,146 @@ interface Props {
   onCreated: (sensor: Sensor) => void;
 }
 
+function minutosDesde(iso: string): number {
+  return Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
+}
+
+// A API responde 409 (código ou grandeza repetidos) e 400 (grandeza fora do catálogo)
+// com uma mensagem própria; "Dados inválidos" é o envelope genérico da validação.
+function mensagemDaApi(error: unknown): string | undefined {
+  if (!isAxiosError(error)) return undefined;
+  const message: unknown = error.response?.data?.message;
+  return typeof message === "string" && message !== "Dados inválidos" ? message : undefined;
+}
+
 export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState<NovoSensor["tipo"]>("Temperatura");
-  const [fator, setFator] = useState("1");
-  const [ganho, setGanho] = useState("0");
+  const [grandezas, setGrandezas] = useState<TipoSensor[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroCatalogo, setErroCatalogo] = useState(false);
+  const [tipo, setTipo] = useState("");
+  const [unidadeLeitura, setUnidadeLeitura] = useState("");
+  const [fatorConversao, setFatorConversao] = useState("1");
+  const [offset, setOffset] = useState("0");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Códigos que a estação já enviou e ainda não têm sensor. O código só pode ser
+  // escolhido entre eles: assim o cadastrado é cópia exata do que a placa manda.
+  const [detectados, setDetectados] = useState<SensorDetectado[]>([]);
+  const [carregandoDetectados, setCarregandoDetectados] = useState(true);
+  const [erroDetectados, setErroDetectados] = useState(false);
+  // Cada "Tentar de novo" soma 1 e dispara a busca de novo.
+  const [tentativa, setTentativa] = useState(0);
+  const [tentativaDetectados, setTentativaDetectados] = useState(0);
   const submitting = useRef(false);
+
+  useEffect(() => {
+    let ativo = true;
+    getTiposSensor()
+      .then((lista) => {
+        if (!ativo) return;
+        setGrandezas(lista);
+        // Mantém a escolha anterior se ela ainda existe; senão, a primeira da lista.
+        setTipo((atual) => (lista.some((item) => item.nome === atual) ? atual : (lista[0]?.nome ?? "")));
+      })
+      .catch(() => {
+        if (ativo) setErroCatalogo(true);
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [tentativa]);
+
+  useEffect(() => {
+    let ativo = true;
+    getSensoresDetectados(estacaoId)
+      .then((lista) => {
+        if (ativo) setDetectados(lista);
+      })
+      .catch(() => {
+        if (ativo) setErroDetectados(true);
+      })
+      .finally(() => {
+        if (ativo) setCarregandoDetectados(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [estacaoId, tentativaDetectados]);
+
+  function tentarDeNovo() {
+    setErroCatalogo(false);
+    setCarregando(true);
+    setTentativa((atual) => atual + 1);
+  }
+
+  function atualizarCodigos() {
+    setErroDetectados(false);
+    setCarregandoDetectados(true);
+    setTentativaDetectados((atual) => atual + 1);
+  }
+
+  const grandeza = grandezas.find((item) => item.nome === tipo);
+  const semCodigosParaEscolher = carregandoDetectados || erroDetectados || detectados.length === 0;
+  const textoSemCodigos = carregandoDetectados
+    ? "Procurando códigos recebidos…"
+    : erroDetectados
+      ? "Não foi possível buscar os códigos"
+      : "Nenhum código novo nos últimos 7 dias";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || !grandeza) return;
     setErro(null);
-    if (!codigo.trim() || !nome.trim()) {
-      setErro("Preencha o código e o nome do sensor.");
+    if (!codigo) {
+      setErro("Escolha o código do sensor entre os que a estação já enviou.");
       return;
     }
-    if (codigo.trim().length > 30 || nome.trim().length > 100) {
-      setErro("Use até 30 caracteres no código e 100 no nome.");
+    if (!nome.trim()) {
+      setErro("Preencha o nome do sensor.");
       return;
     }
-    if ([fator, ganho].some((value) => !value.trim() || !Number.isFinite(Number(value)) || Math.abs(Number(value)) > 999999.999999)) {
-      setErro("Informe valores válidos para fator e ganho, entre -999999,999999 e 999999,999999.");
+    if (nome.trim().length > 100) {
+      setErro("Use até 100 caracteres no nome.");
+      return;
+    }
+    if (unidadeLeitura.trim().length > 20) {
+      setErro("Use até 20 caracteres na unidade da leitura.");
+      return;
+    }
+    if ([fatorConversao, offset].some((value) => !value.trim() || !Number.isFinite(Number(value)) || Math.abs(Number(value)) > 999999.999999)) {
+      setErro("Informe valores válidos para o fator de conversão e o offset, entre -999999,999999 e 999999,999999.");
       return;
     }
     submitting.current = true;
     setBusy(true);
     try {
-      const sensor = await createSensor(estacaoId, { codigo: codigo.trim(), nome: nome.trim(), tipo, fator: Number(fator), ganho: Number(ganho) });
+      const sensor = await createSensor(estacaoId, {
+        codigo,
+        nome: nome.trim(),
+        tipo: grandeza.nome,
+        // Só vai quando preenchida: vazio significa que a placa já envia na unidade da grandeza.
+        ...(unidadeLeitura.trim() ? { unidade_leitura: unidadeLeitura.trim() } : {}),
+        fator_conversao: Number(fatorConversao),
+        offset: Number(offset),
+      });
       onCreated(sensor);
     } catch (error) {
       const status = isAxiosError(error) ? error.response?.status : undefined;
+      const daApi = mensagemDaApi(error);
       setErro(status === 409
-        ? "Já existe um sensor com este código ou tipo nesta estação. Confira os dados."
-        : status === 401
-          ? "Sua sessão expirou. Entre novamente para cadastrar o sensor."
-          : status === 403
-            ? "Você não tem permissão para cadastrar sensores nesta estação."
-            : "Não foi possível cadastrar o sensor. Confira os dados e tente novamente.");
+        ? daApi ?? "Já existe um sensor com este código ou grandeza nesta estação. Confira os dados."
+        : status === 400 && daApi
+          ? daApi
+          : status === 401
+            ? "Sua sessão expirou. Entre novamente para cadastrar o sensor."
+            : status === 403
+              ? "Você não tem permissão para cadastrar sensores nesta estação."
+              : "Não foi possível cadastrar o sensor. Confira os dados e tente novamente.");
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -62,22 +170,57 @@ export function SensorCreateModal({ estacaoId, onClose, onCreated }: Props) {
     <Modal title="Adicionar sensor" description="Configure o instrumento associado a esta estação." onClose={onClose} busy={busy}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {erro && <div role="alert" className="rounded-lg border border-error/40 bg-error/10 p-3.5 text-[13px] text-error">{erro}</div>}
-        <fieldset disabled={busy} className="space-y-4">
-          <Input label="Código" placeholder="TEMP-01" required maxLength={30} value={codigo} onChange={(event) => setCodigo(event.target.value)} />
-          <Input label="Nome do sensor" placeholder="Sensor de temperatura do ar" required maxLength={100} value={nome} onChange={(event) => setNome(event.target.value)} />
-          <Select label="Tipo de sensor" value={tipo} onChange={(event) => setTipo(event.target.value as NovoSensor["tipo"])} required>
-            {Object.keys(tiposSensor).map((value) => <option key={value} value={value}>{value}</option>)}
-          </Select>
-          <Input label="Unidade de medida" value={tiposSensor[tipo]} readOnly />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Fator" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={fator} onChange={(event) => setFator(event.target.value)} />
-            <Input label="Ganho" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={ganho} onChange={(event) => setGanho(event.target.value)} />
+        {erroCatalogo && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-error/40 bg-error/10 p-3.5 text-[13px] text-error">
+            <span>Não foi possível carregar as grandezas. Verifique a conexão e tente novamente.</span>
+            <Button onClick={tentarDeNovo} disabled={carregando}>Tentar de novo</Button>
           </div>
-          <p className="text-xs text-muted">Para sensores já calibrados, mantenha fator 1 e ganho 0. O sensor será cadastrado como Ativo.</p>
+        )}
+        <fieldset disabled={busy} className="space-y-4">
+          <Select
+            label="Código do sensor"
+            value={codigo}
+            onChange={(event) => setCodigo(event.target.value)}
+            required
+            disabled={semCodigosParaEscolher}
+          >
+            <option value="">{semCodigosParaEscolher ? textoSemCodigos : "Selecione o código recebido"}</option>
+            {detectados.map((item) => (
+              <option key={item.codigo} value={item.codigo}>
+                {item.codigo} — Último valor {item.ultimo_valor ?? "—"} · {formatRelativeTime(minutosDesde(item.ultima_leitura_em))} · {item.total} {item.total === 1 ? "leitura" : "leituras"}
+              </option>
+            ))}
+          </Select>
+          {erroDetectados || (!carregandoDetectados && detectados.length === 0) ? (
+            <div className="-mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+              <span>
+                {erroDetectados
+                  ? "Sem a lista não dá para escolher o código. Verifique a conexão e busque de novo."
+                  : "A estação ainda não enviou nenhum código sem sensor. Confira se ela está ligada e enviando dados, e atualize a lista."}
+              </span>
+              <Button onClick={atualizarCodigos} disabled={carregandoDetectados}>Atualizar lista</Button>
+            </div>
+          ) : (
+            <p className="-mt-2 text-xs text-muted">Só aparecem os códigos que a estação já enviou e que ainda não têm sensor. Assim o código fica igual ao que a placa envia. Ele é único na estação.</p>
+          )}
+          <Input label="Nome do sensor" placeholder="Sensor de temperatura do ar" required maxLength={100} value={nome} onChange={(event) => setNome(event.target.value)} />
+          <Select label="Grandeza" value={tipo} onChange={(event) => setTipo(event.target.value)} required disabled={carregando || erroCatalogo || grandezas.length === 0}>
+            {carregando && <option value="">Carregando grandezas…</option>}
+            {!carregando && grandezas.length === 0 && <option value="">Nenhuma grandeza disponível</option>}
+            {grandezas.map((item) => <option key={item.id} value={item.nome}>{item.nome}</option>)}
+          </Select>
+          <Input label="Unidade de medida" value={grandeza?.unidade ?? ""} readOnly />
+          <Input label="Unidade da leitura (opcional)" placeholder="K" maxLength={20} value={unidadeLeitura} onChange={(event) => setUnidadeLeitura(event.target.value)} />
+          <p className="-mt-2 text-xs text-muted">Deixe vazio se a placa já envia na unidade da grandeza. É só informativa: a conversão é feita pelo fator e pelo offset (ex.: Kelvin para °C, offset -273,15).</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input label="Fator de conversão" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={fatorConversao} onChange={(event) => setFatorConversao(event.target.value)} />
+            <Input label="Offset" type="number" required min="-999999.999999" max="999999.999999" step="0.000001" value={offset} onChange={(event) => setOffset(event.target.value)} />
+          </div>
+          <p className="text-xs text-muted">valor = leitura × fator de conversão + offset. Para sensores já calibrados, mantenha fator 1 e offset 0. O sensor será cadastrado como Ativo.</p>
         </fieldset>
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button onClick={onClose} disabled={busy}>Cancelar</Button>
-          <Button type="submit" variant="primary" busy={busy}>{busy ? "Salvando…" : "Cadastrar sensor"}</Button>
+          <Button type="submit" variant="primary" busy={busy} disabled={carregando || !grandeza || !codigo}>{busy ? "Salvando…" : "Cadastrar sensor"}</Button>
         </div>
       </form>
     </Modal>
