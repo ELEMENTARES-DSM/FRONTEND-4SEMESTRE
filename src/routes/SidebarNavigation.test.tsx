@@ -44,7 +44,7 @@ describe('Navegação autenticada pela sidebar', () => {
   it.each([
     ['ADMINISTRADOR', 'Administrador', true, true],
     ['GESTOR_PUBLICO', 'Gestor Público', false, true],
-    ['PESQUISADOR', 'Pesquisador', false, false],
+    ['MUNICIPE', 'Munícipe', false, true],
   ])('mostra nome, perfil e menu corretos para %s', async (papel, label, canManageUsers, canViewStations) => {
     renderNavigation(papel)
     const sidebar = within(screen.getByRole('complementary'))
@@ -52,7 +52,7 @@ describe('Navegação autenticada pela sidebar', () => {
     expect(sidebar.getByText(label)).toBeInTheDocument()
     expect(sidebar.queryByText('INMET / USP')).not.toBeInTheDocument()
     expect(Boolean(sidebar.queryByRole('button', { name: 'Usuários' }))).toBe(canManageUsers)
-    const panel = within(screen.getByRole('heading', { name: 'Plataforma' }).closest('main')!)
+    const panel = within(screen.getByRole('heading', { name: 'Visão Geral' }).closest('main')!)
     expect(panel.queryByText('Usuários')).not.toBeInTheDocument()
     expect(panel.queryByRole('button', { name: 'Sair' })).not.toBeInTheDocument()
     if (canViewStations) {
@@ -71,7 +71,7 @@ describe('Navegação autenticada pela sidebar', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/usuarios/'))
   })
 
-  it.each(['GESTOR_PUBLICO', 'PESQUISADOR'])('bloqueia acesso direto a usuários para %s', async (papel) => {
+  it.each(['GESTOR_PUBLICO', 'MUNICIPE'])('bloqueia acesso direto a usuários para %s', async (papel) => {
     renderNavigation(papel, '/platform/usuarios')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/platform$/))
     expect(screen.queryByRole('heading', { name: 'Gestão de Usuários' })).not.toBeInTheDocument()
