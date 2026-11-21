@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { AxiosError, type AxiosResponse } from 'axios'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Stations, type Station } from './Stations'
@@ -31,12 +32,14 @@ function renderAs(
 
 function preencherCadastro({
   codigo = 'EST-SJC-099',
+  mac = 'AA:BB:CC:DD:EE:01',
   nome = 'Localidade Qualquer',
   latitude = '-23.1534',
   longitude = '-45.7922',
   municipio,
 }: {
   codigo?: string
+  mac?: string
   nome?: string
   latitude?: string
   longitude?: string
@@ -44,6 +47,7 @@ function preencherCadastro({
 }) {
   fireEvent.click(screen.getByRole('button', { name: /Nova Estação/i }))
   fireEvent.change(screen.getByLabelText(/Código da Estação/i), { target: { value: codigo } })
+  fireEvent.change(screen.getByLabelText(/MAC da placa/i), { target: { value: mac } })
   fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), { target: { value: nome } })
   if (municipio !== undefined) {
     fireEvent.change(screen.getByLabelText(/Município/i), { target: { value: municipio } })
@@ -128,6 +132,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
 
     await waitFor(() => {
       expect(postSpy).toHaveBeenCalledWith('/estacoes', {
+        mac_address: 'aabbccddee01',
         codigo: 'EST-SJC-099',
         nome: 'Localidade Qualquer',
         latitude: -23.1534,
@@ -147,7 +152,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
 
   it('Cenário 2: Tentativa de cadastro com código identificador já existente', async () => {
     const postSpy = vi.spyOn(api, 'post').mockRejectedValueOnce({
-      response: { status: 409, data: { message: 'Conflict' } },
+      response: { status: 409, data: { message: 'Identificador de estação já cadastrado no sistema' } },
       status: 409,
     })
 
@@ -159,7 +164,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
       expect(postSpy).toHaveBeenCalled()
     })
     expect(
-      await screen.findByText('Identificador de estação já cadastrado no sistema.'),
+      await screen.findByText('Identificador de estação já cadastrado no sistema'),
     ).toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
@@ -548,6 +553,7 @@ describe('US-03 - Município da estação', () => {
 
     await waitFor(() => {
       expect(postSpy).toHaveBeenCalledWith('/estacoes', {
+        mac_address: 'aabbccddee01',
         codigo: 'EST-JAC-001',
         nome: 'Localidade Qualquer',
         municipio: 'Jacareí',
@@ -569,5 +575,53 @@ describe('US-03 - Município da estação', () => {
 
     expect(postSpy).not.toHaveBeenCalled()
     expect(screen.getByText('Informe o município da estação.')).toBeInTheDocument()
+  })
+})
+
+describe('MAC da placa no cadastro', () => {
+  it('envia o MAC normalizado (minúsculas, sem separador) mesmo quando digitado com ":"', async () => {
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValueOnce(respostaDoBack())
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ mac: 'AA:BB:CC:DD:EE:FF' })
+    salvar()
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith(
+        '/estacoes',
+        expect.objectContaining({ mac_address: 'aabbccddeeff' }),
+      )
+    })
+  })
+
+  it('bloqueia MAC inválido sem chamar a API', async () => {
+    const postSpy = vi.spyOn(api, 'post')
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ mac: 'XYZ123' })
+    salvar()
+
+    expect(
+      await screen.findByText(/MAC inválido: informe 12 caracteres hexadecimais/i),
+    ).toBeInTheDocument()
+    expect(postSpy).not.toHaveBeenCalled()
+  })
+
+  it('exibe a mensagem do servidor quando o MAC já está cadastrado em outra estação (409)', async () => {
+    vi.spyOn(api, 'post').mockRejectedValueOnce(
+      new AxiosError('Conflict', 'ERR_BAD_REQUEST', undefined, undefined, {
+        status: 409,
+        data: { message: 'MAC já cadastrado em outra estação' },
+      } as AxiosResponse),
+    )
+
+    renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
+    preencherCadastro({ mac: 'AA:BB:CC:DD:EE:02' })
+    salvar()
+
+    expect(
+      await screen.findByText('MAC já cadastrado em outra estação'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 })
