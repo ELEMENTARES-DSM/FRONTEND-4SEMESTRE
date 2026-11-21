@@ -20,20 +20,34 @@ const quantidades: Record<PeriodoAnalise, number> = {
 
 const valoresBase: Record<string, number> = {
     PM25: 18,
+    'PM2.5': 18,
     PM10: 32,
     O3: 45,
     NO2: 20,
     CO: 0.8,
     SO2: 12,
+    Temperatura: 24.5,
+    'Umidade Relativa': 62,
+    'Velocidade do Vento': 14.2,
+    'Direção do Vento': 180,
+    Precipitação: 0.4,
+    'Pressão Atmosférica': 1013.2,
 }
 
 const unidades: Record<string, string> = {
     PM25: 'µg/m³',
+    'PM2.5': 'µg/m³',
     PM10: 'µg/m³',
     O3: 'µg/m³',
     NO2: 'µg/m³',
     CO: 'ppm',
     SO2: 'µg/m³',
+    Temperatura: '°C',
+    'Umidade Relativa': '%',
+    'Velocidade do Vento': 'km/h',
+    'Direção do Vento': '°',
+    Precipitação: 'mm',
+    'Pressão Atmosférica': 'hPa',
 }
 
 export function criarMockSeries(

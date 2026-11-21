@@ -125,7 +125,14 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
   };
   // Mesmo envelope retornado pelo backend.
 
-    // Rotas de análise de dados.
+  const encontrarEstacao = (identificador: string) =>
+    estacoes.find(
+      (item) =>
+        item.id === identificador ||
+        item.codigo.toUpperCase() === identificador.toUpperCase(),
+    );
+
+  // Rotas de análise de dados.
   const seriesRoute = url.match(
     /^\/analise\/estacoes\/([^/]+)\/series$/,
   );
@@ -133,7 +140,7 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
   if (method === 'get' && seriesRoute) {
     const estacaoId = seriesRoute[1];
 
-    if (!estacoes.some((item) => item.id === estacaoId)) {
+    if (!encontrarEstacao(estacaoId)) {
       return fail(404, 'Estação não encontrada.');
     }
 
@@ -166,14 +173,32 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
   if (method === 'get' && ultimasLeiturasRoute) {
     const estacaoId = ultimasLeiturasRoute[1];
 
-    if (!estacoes.some((item) => item.id === estacaoId)) {
+    if (!encontrarEstacao(estacaoId)) {
       return fail(404, 'Estação não encontrada.');
     }
 
     return response(criarMockUltimasLeituras(estacaoId));
   }
 
+  const iqarEstacaoRoute = url.match(
+    /^\/analise\/estacoes\/([^/]+)\/iqar$/,
+  );
+
+  if (method === 'get' && iqarEstacaoRoute) {
+    const estacaoId = iqarEstacaoRoute[1];
+
+    if (!encontrarEstacao(estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
+
+    return response({ ...mockIqar, estacaoId });
+  }
+
   if (method === 'get' && url === '/analise/iqar') {
+    const params = config.params as { estacaoId?: string } | undefined;
+    if (params?.estacaoId && !encontrarEstacao(params.estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
     return response(mockIqar);
   }
 

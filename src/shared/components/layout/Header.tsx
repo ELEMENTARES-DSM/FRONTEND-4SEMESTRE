@@ -15,6 +15,10 @@ export function Header({ onMenuClick }: HeaderProps) {
       : pathname.startsWith(n.path),
   );
 
+  const pageLabel =
+    current?.label ??
+    (pathname.startsWith("/platform/dashboard") ? "Dashboard" : "—");
+
   return (
     <header className="flex items-center gap-3 px-4 h-14 shrink-0 bg-base-200 border-b border-base-300">
       {/* Mobile menu */}
@@ -42,7 +46,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <span className="text-xs text-muted">Pulso Urbano</span>
         <span className="text-line">/</span>
         <span className="text-sm font-medium text-base-content">
-          {current?.label ?? "—"}
+          {pageLabel}
         </span>
       </div>
 
