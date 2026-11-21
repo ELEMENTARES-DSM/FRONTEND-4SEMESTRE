@@ -72,7 +72,7 @@ afterEach(() => {
 })
 
 describe('DashboardEstacao integração (US-35)', () => {
-  it('deve navegar do link da estação na Visão Geral para /platform/dashboard/:id e carregar os dados', async () => {
+  it('deve navegar do link da estação na Visão Geral para /platform/dashboard e carregar os dados da estação', async () => {
     const getSpy = vi
       .spyOn(api, 'get')
       .mockImplementation(async (url: string, config?: AxiosRequestConfig) => {
@@ -84,16 +84,31 @@ describe('DashboardEstacao integração (US-35)', () => {
             },
           }
         }
+
         if (url === '/alertas/alarmes/resumo') {
-          return { data: { abertos: { ATENCAO: 0, ALERTA: 0, CRITICO: 0 }, total: 0 } }
+          return {
+            data: {
+              abertos: { ATENCAO: 0, ALERTA: 0, CRITICO: 0 },
+              total: 0,
+            },
+          }
         }
+
         if (url === '/estacoes/tipos-sensor') {
           return {
             data: [
-              { id: '1', nome: 'PM2.5', unidade: 'µg/m³', faixa_min: '0', faixa_max: '1000', agregacao: 'media' },
+              {
+                id: '1',
+                nome: 'PM2.5',
+                unidade: 'µg/m³',
+                faixa_min: '0',
+                faixa_max: '1000',
+                agregacao: 'media',
+              },
             ],
           }
         }
+
         if (url === `/analise/estacoes/${ESTACAO_1.id}/series`) {
           return {
             data: {
@@ -107,6 +122,7 @@ describe('DashboardEstacao integração (US-35)', () => {
             },
           }
         }
+
         if (url === `/analise/estacoes/${ESTACAO_1.id}/ultimas-leituras`) {
           return {
             data: {
@@ -122,6 +138,7 @@ describe('DashboardEstacao integração (US-35)', () => {
             },
           }
         }
+
         if (url === '/analise/iqar') {
           return {
             data: {
@@ -134,17 +151,21 @@ describe('DashboardEstacao integração (US-35)', () => {
             },
           }
         }
+
         return { data: [] }
       })
 
     autenticarEabrir('/platform')
 
-    const linkEstacao = await screen.findByRole('link', { name: /Estação Centro/i })
+    const linkEstacao = await screen.findByRole('link', {
+      name: /Estação Centro/i,
+    })
+
     fireEvent.click(linkEstacao)
 
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(
-        `/platform/dashboard/${ESTACAO_1.id}`,
+        '/platform/dashboard',
       ),
     )
 
@@ -155,14 +176,16 @@ describe('DashboardEstacao integração (US-35)', () => {
     ).toBeInTheDocument()
 
     expect(getSpy).toHaveBeenCalledWith(
-      `/analise/estacoes/${ESTACAO_1.id}/series`,
+      `/analise/estacoes/${ESTACAO_1.codigo}/series`,
       { params: { grandeza: 'PM2.5', periodo: '24h' } },
     )
+
     expect(getSpy).toHaveBeenCalledWith(
-      `/analise/estacoes/${ESTACAO_1.id}/ultimas-leituras`,
+      `/analise/estacoes/${ESTACAO_1.codigo}/ultimas-leituras`,
     )
+
     expect(getSpy).toHaveBeenCalledWith('/analise/iqar', {
-      params: { estacaoId: ESTACAO_1.id },
+      params: { estacaoId: ESTACAO_1.codigo },
     })
   })
 
