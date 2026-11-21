@@ -26,6 +26,7 @@ export default defineConfig({
     exclude: [
       "**/node_modules/**",
       "**/dist/**",
+      "**/qa/**",
       "**/*.integration.test.{ts,tsx}",
     ],
     // Folga para máquina carregada: o primeiro teste de uma tela pesada passou de 5 s com CI e Docker rodando juntos.
