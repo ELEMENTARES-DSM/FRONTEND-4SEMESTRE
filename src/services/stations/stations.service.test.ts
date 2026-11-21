@@ -45,6 +45,7 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
 
   it('4. Mock consegue criar estação', async () => {
     const newStationData = {
+      mac_address: 'aabbccddeeff',
       codigo: 'EST-TEST-001',
       nome: 'Estação de Teste Mock',
       municipio: 'São José dos Campos',
@@ -127,6 +128,7 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
 
   it('6. Mock consegue detectar código duplicado', async () => {
     const duplicateData = {
+      mac_address: 'aabbccddeeff',
       codigo: 'EST-SJC-001', // código que já existe no INITIAL_STATIONS
       nome: 'Tentativa Duplicada',
       municipio: 'São José dos Campos',
@@ -160,6 +162,7 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
 
     // POST /estacoes
     const newStationData = {
+      mac_address: 'aabbccddeeff',
       codigo: 'EST-2',
       nome: 'E2',
       latitude: -23.0,
@@ -186,6 +189,7 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
     })
 
     const data = {
+      mac_address: 'aabbccddeeff',
       codigo: 'EST-EXISTENTE',
       nome: 'Conflito',
       latitude: -23.0,
@@ -220,6 +224,7 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
 
     await stationsService.getStations()
     await stationsService.createStation({
+      mac_address: 'aabbccddeeff',
       codigo: 'EST-MOCK-NO-HTTP',
       nome: 'Sem HTTP',
       latitude: -23.0,
@@ -230,5 +235,29 @@ describe('Stations Feature - Camada de Serviços, Mock e API', () => {
     expect(getSpy).not.toHaveBeenCalled()
     expect(postSpy).not.toHaveBeenCalled()
     expect(patchSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('createStation (mock): MAC da placa', () => {
+  it('recusa um MAC já cadastrado em outra estação, com a mensagem do MAC', async () => {
+    await stationsMockService.createStation({
+      mac_address: 'ccddeeff0011',
+      codigo: 'EST-MAC-A',
+      nome: 'Estação A',
+      municipio: 'Taubaté',
+      latitude: -23.02,
+      longitude: -45.55,
+    })
+
+    await expect(
+      stationsMockService.createStation({
+        mac_address: 'ccddeeff0011',
+        codigo: 'EST-MAC-B',
+        nome: 'Estação B',
+        municipio: 'Taubaté',
+        latitude: -23.02,
+        longitude: -45.55,
+      }),
+    ).rejects.toThrow('MAC já cadastrado em outra estação')
   })
 })

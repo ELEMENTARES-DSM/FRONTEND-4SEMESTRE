@@ -122,11 +122,17 @@ export const stationsMockService = {
       throw new StationConflictError()
     }
 
+    const macEmUso = inMemoryStations.some((s) => s.mac_address === data.mac_address)
+    if (macEmUso) {
+      throw new StationConflictError('MAC já cadastrado em outra estação')
+    }
+
     // Igual ao back: toda estação nasce Ativa.
     const status: StationStatus = 'Ativa'
     const now = new Date().toISOString()
     const newStation: Station = {
       id: `est-${Date.now()}`,
+      mac_address: data.mac_address,
       codigo: normalizedCodigo,
       nome: data.nome.trim(),
       municipio: data.municipio,
