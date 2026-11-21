@@ -213,8 +213,7 @@ export function StationsTable({
                   <tr key={estacao.id} className="hover:bg-white/[0.02]">
                     <td>
                       <Link
-                        to="/platform/dashboard"
-                        state={{ stationId: estacao.id }}
+                        to={`/platform/dashboard/${encodeURIComponent(estacao.id)}`}
                         className="group inline-flex items-center gap-3"
                       >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-teal-500/20 bg-teal-500/10 text-teal-400">

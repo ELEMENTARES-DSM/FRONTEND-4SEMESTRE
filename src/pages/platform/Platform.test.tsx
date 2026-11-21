@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider } from '../../auth/AuthProvider'
 import api from '../../api/instance'
 import { Platform } from './Platform'
@@ -23,6 +23,30 @@ function renderPlatform(papel: string) {
     <MemoryRouter initialEntries={['/platform']}>
       <AuthProvider>
         <Platform />
+      </AuthProvider>
+    </MemoryRouter>,
+  )
+}
+
+function LocalizacaoAtual() {
+  const { pathname } = useLocation()
+  return <output data-testid="localizacao">{pathname}</output>
+}
+
+function renderPlatformComRotas(papel: string) {
+  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))
+  localStorage.setItem('token', `header.${payload}.signature`)
+  localStorage.setItem('usuario', JSON.stringify({
+    id: 'usuario-teste', nome: 'Maria Silva', papel, municipio: 'São José dos Campos',
+  }))
+  return render(
+    <MemoryRouter initialEntries={['/platform']}>
+      <AuthProvider>
+        <Routes>
+          <Route path="/platform" element={<Platform />} />
+          <Route path="/platform/dashboard/:id" element={<span>Dashboard</span>} />
+        </Routes>
+        <LocalizacaoAtual />
       </AuthProvider>
     </MemoryRouter>,
   )
@@ -53,6 +77,33 @@ describe('Visão Geral por perfil', () => {
     expect(get).toHaveBeenCalledWith('/estacoes/status')
     expect(screen.queryByRole('button', { name: 'Nova Estação' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('deve apontar o nome de cada estação para o dashboard dela quando a tabela carrega', async () => {
+    // Dado
+    vi.spyOn(api, 'get').mockResolvedValue({ data: STATUS })
+
+    // Quando
+    renderPlatform('MUNICIPE')
+    await screen.findByText('Estação Centro')
+
+    // Então
+    expect(screen.getByRole('link', { name: /Estação Centro/ })).toHaveAttribute('href', '/platform/dashboard/e1')
+    expect(screen.getByRole('link', { name: /Estação Norte/ })).toHaveAttribute('href', '/platform/dashboard/e2')
+  })
+
+  it('deve abrir /platform/dashboard/e2 quando clicar no nome da segunda estação', async () => {
+    // Dado
+    vi.spyOn(api, 'get').mockResolvedValue({ data: STATUS })
+    renderPlatformComRotas('MUNICIPE')
+    const linkSegundaEstacao = await screen.findByRole('link', { name: /Estação Norte/ })
+
+    // Quando
+    fireEvent.click(linkSegundaEstacao)
+
+    // Então
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument()
+    expect(screen.getByTestId('localizacao')).toHaveTextContent('/platform/dashboard/e2')
   })
 
   it.each(['GESTOR_PUBLICO', 'ADMINISTRADOR'])('%s continua vendo os indicadores e a tabela de estações', async (papel) => {

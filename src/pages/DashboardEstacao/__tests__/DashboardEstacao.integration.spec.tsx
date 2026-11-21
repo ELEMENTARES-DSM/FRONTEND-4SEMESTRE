@@ -165,7 +165,7 @@ describe('DashboardEstacao integração (US-35)', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(
-        '/platform/dashboard',
+        `/platform/dashboard/${ESTACAO_1.id}`,
       ),
     )
 
@@ -176,16 +176,16 @@ describe('DashboardEstacao integração (US-35)', () => {
     ).toBeInTheDocument()
 
     expect(getSpy).toHaveBeenCalledWith(
-      `/analise/estacoes/${ESTACAO_1.codigo}/series`,
+      `/analise/estacoes/${ESTACAO_1.id}/series`,
       { params: { grandeza: 'PM2.5', periodo: '24h' } },
     )
 
     expect(getSpy).toHaveBeenCalledWith(
-      `/analise/estacoes/${ESTACAO_1.codigo}/ultimas-leituras`,
+      `/analise/estacoes/${ESTACAO_1.id}/ultimas-leituras`,
     )
 
     expect(getSpy).toHaveBeenCalledWith('/analise/iqar', {
-      params: { estacaoId: ESTACAO_1.codigo },
+      params: { estacaoId: ESTACAO_1.id },
     })
   })
 
