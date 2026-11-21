@@ -33,7 +33,7 @@ export default defineConfig({
     css: false,
     coverage: {
       provider: "v8",
-      reporter: ["text", "html"],
+      reporter: ["text", "html", "json-summary"],
       include: [
         "src/components/**/*.{ts,tsx}",
         "src/hooks/**/*.{ts,tsx}",

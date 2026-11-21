@@ -9,6 +9,7 @@ on:
 jobs:
   validacao-codigo:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Fazer o Checkout do código
@@ -39,8 +40,36 @@ jobs:
       - name: Rodar Linter
         run: npm run lint
 
-      - name: Rodar Testes Unitários
-        run: npm test
+      - name: Rodar Testes Unitários com Cobertura
+        run: npm test -- --coverage
+
+      - name: Publicar resumo de cobertura no PR
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e '
+              const fs = require("fs");
+              const data = JSON.parse(fs.readFileSync("coverage/coverage-summary.json", "utf8")).total;
+              const fmt = (m) => `${m.pct.toFixed(2)}% (${m.covered}/${m.total})`;
+              const md = [
+                "### Cobertura de Testes — Frontend",
+                "",
+                "| Métrica | Cobertura | Mínimo | Status |",
+                "|---|---:|---:|:---:|",
+                `| Statements | ${fmt(data.statements)} | 70% | ${data.statements.pct >= 70 ? "✅" : "❌"} |`,
+                `| Branches | ${fmt(data.branches)} | 70% | ${data.branches.pct >= 70 ? "✅" : "❌"} |`,
+                `| Functions | ${fmt(data.functions)} | 70% | ${data.functions.pct >= 70 ? "✅" : "❌"} |`,
+                `| Lines | ${fmt(data.lines)} | 70% | ${data.lines.pct >= 70 ? "✅" : "❌"} |`,
+                "",
+              ].join("\n");
+              if (process.env.GITHUB_STEP_SUMMARY) {
+                fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+              }
+            '
+          fi
+
+      - name: Rodar Testes de Integração
+        run: npm run test:integration
 
       - name: Fazer o Build
         run: npm run build
