@@ -38,17 +38,18 @@ afterEach(() => {
   localStorage.clear()
 })
 
-describe('Visão Geral por perfil (TASK 24.05)', () => {
-  it('o pesquisador vê a Visão Geral sem erro e sem consultar as estações', async () => {
-    const get = vi.spyOn(api, 'get').mockRejectedValue({ isAxiosError: true, response: { status: 403 } })
+describe('Visão Geral por perfil', () => {
+  it('o munícipe vê a Visão Geral com as estações sem o botão de criar estação', async () => {
+    const get = vi.spyOn(api, 'get').mockResolvedValue({ data: STATUS })
 
-    renderPlatform('PESQUISADOR')
+    renderPlatform('MUNICIPE')
 
-    expect(screen.getByRole('heading', { name: 'Plataforma' })).toBeInTheDocument()
-    expect(screen.getByText(/são para gestores públicos e administradores/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Visão Geral' })).toBeInTheDocument()
+    expect(await screen.findByText('Estação Centro')).toBeInTheDocument()
+    expect(screen.getByText('Estação Norte')).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith('/estacoes/status')
+    expect(screen.queryByRole('button', { name: 'Nova Estação' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Tentar novamente' })).not.toBeInTheDocument()
-    expect(get).not.toHaveBeenCalled()
   })
 
   it.each(['GESTOR_PUBLICO', 'ADMINISTRADOR'])('%s continua vendo os indicadores e a tabela de estações', async (papel) => {
@@ -58,8 +59,8 @@ describe('Visão Geral por perfil (TASK 24.05)', () => {
 
     expect(await screen.findByText('Estação Centro')).toBeInTheDocument()
     expect(screen.getByText('Estação Norte')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nova Estação' })).toBeInTheDocument()
     expect(get).toHaveBeenCalledWith('/estacoes/status')
-    expect(screen.queryByText(/são para gestores públicos e administradores/)).not.toBeInTheDocument()
   })
 
   it('para quem tem acesso, a falha de conexão mostra a mensagem e o botão de tentar de novo', async () => {
@@ -69,7 +70,7 @@ describe('Visão Geral por perfil (TASK 24.05)', () => {
 
     renderPlatform('GESTOR_PUBLICO')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar as estações')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Erro no servidor ao carregar as estações. Tente novamente em instantes.')
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(await screen.findByText('Estação Centro')).toBeInTheDocument()
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
