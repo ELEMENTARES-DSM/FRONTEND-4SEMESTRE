@@ -5,11 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "preview": "vite preview",
     "test": "vitest run",
-    "test:changed": "vitest related"
+    "test:changed": "vitest related --run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "validate:env": "node scripts/validate-env.mjs",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
