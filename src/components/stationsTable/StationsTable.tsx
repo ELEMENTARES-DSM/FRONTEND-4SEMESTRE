@@ -1,4 +1,3 @@
-
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { EstacaoStatus } from "../../services/estacoesService";
@@ -7,30 +6,7 @@ import { Input, Select } from "../../shared/components/Field";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import { stationsService } from "../../services/stations/stations.service";
 import { StationForbiddenError } from "../../services/stations/stations.errors";
-
-export interface IqarBandInfo {
-  key: "boa" | "moderada" | "ruim" | "muito_ruim" | "pessima";
-  label: string;
-  range: string;
-  color: string;
-  bg: string;
-}
-
-export const IQAR_BANDS: IqarBandInfo[] = [
-  { key: "boa", label: "Boa", range: "0–40", color: "#22C55E", bg: "#22C55E1F" },
-  { key: "moderada", label: "Moderada", range: "41–80", color: "#FACC15", bg: "#FACC151F" },
-  { key: "ruim", label: "Ruim", range: "81–120", color: "#FB923C", bg: "#FB923C1F" },
-  { key: "muito_ruim", label: "Muito Ruim", range: "121–199", color: "#EF4444", bg: "#EF44441F" },
-  { key: "pessima", label: "Péssima", range: "200+", color: "#A855F7", bg: "#A855F71F" },
-];
-
-export function getIqarBand(iqar: number): IqarBandInfo {
-  if (iqar <= 40) return IQAR_BANDS[0];
-  if (iqar <= 80) return IQAR_BANDS[1];
-  if (iqar <= 120) return IQAR_BANDS[2];
-  if (iqar < 200) return IQAR_BANDS[3];
-  return IQAR_BANDS[4];
-}
+import { getIqarBand, IQAR_BANDS } from "../../utils/iqarBands";
 
 interface StationsTableProps {
   estacoes: EstacaoStatus[];
@@ -98,7 +74,7 @@ export function StationsTable({
   async function handleAlterarStatus(estacao: EstacaoStatus) {
     if (
       !podeAlterarStatus ||
-      estacao.status_operacional === "Inativa" && inativandoId !== null ||
+      (estacao.status_operacional === "Inativa" && inativandoId !== null) ||
       inativandoId !== null
     ) {
       return;
@@ -281,12 +257,13 @@ export function StationsTable({
                       >
                         <span
                           aria-hidden="true"
-                          className={`size-1.5 rounded-full ${estacao.status_operacional === "Ativa"
-                            ? "bg-success"
-                            : estacao.status_operacional === "Com Falha"
-                              ? "bg-error"
-                              : "bg-muted"
-                            }`}
+                          className={`size-1.5 rounded-full ${
+                            estacao.status_operacional === "Ativa"
+                              ? "bg-success"
+                              : estacao.status_operacional === "Com Falha"
+                                ? "bg-error"
+                                : "bg-muted"
+                          }`}
                         />
 
                         {estacao.status_operacional}
@@ -332,9 +309,7 @@ export function StationsTable({
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted">
-                          Sem leitura
-                        </span>
+                        <span className="text-xs text-muted">Sem leitura</span>
                       )}
                     </td>
 
@@ -345,10 +320,11 @@ export function StationsTable({
                             type="button"
                             onClick={() => handleAlterarStatus(estacao)}
                             disabled={inativandoId !== null}
-                            className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${estacao.status_operacional === "Inativa"
+                            className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                              estacao.status_operacional === "Inativa"
                                 ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
                                 : "border-error/30 bg-error/10 text-error hover:bg-error/20"
-                              }`}
+                            }`}
                           >
                             {inativandoId === estacao.id
                               ? "Atualizando..."
@@ -378,7 +354,6 @@ export function StationsTable({
               className="size-2 rounded-full"
               style={{ backgroundColor: band.color }}
             />
-
             {band.label} ({band.range})
           </span>
         ))}

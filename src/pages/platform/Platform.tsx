@@ -1,4 +1,3 @@
-
 import { isAxiosError } from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -53,9 +52,7 @@ export function Platform() {
         isAxiosError(error) &&
         (error.response?.status === 403 || error.response?.status === 401)
       ) {
-        setErro(
-          "Você não possui permissão para visualizar estas estações.",
-        );
+        setErro("Você não possui permissão para visualizar estas estações.");
       } else if (isAxiosError(error) && !error.response) {
         setErro(
           "Sem conexão com a rede. Verifique sua internet e tente novamente.",
@@ -71,12 +68,21 @@ export function Platform() {
     }
   }, []);
 
+  // Carregamento inicial e atualização automática a cada cinco minutos.
+  // O setTimeout evita chamar a função que atualiza estados diretamente no efeito.
   useEffect(() => {
-    carregarEstacoes();
+    const initialLoad = window.setTimeout(() => {
+      void carregarEstacoes();
+    }, 0);
 
-    const timer = window.setInterval(carregarEstacoes, POLLING_MS);
+    const timer = window.setInterval(() => {
+      void carregarEstacoes();
+    }, POLLING_MS);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(timer);
+    };
   }, [carregarEstacoes, reload]);
 
   const ativas =

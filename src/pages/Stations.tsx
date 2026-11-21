@@ -1,26 +1,25 @@
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Button } from "../shared/components/Button";
+import { Filter, type FilterOption } from "../shared/components/Filter";
+import { Icon } from "../shared/components/Icon";
+import { Loading } from "../shared/components/Loading";
+import { Modal } from "../shared/components/Modal";
+import { Pagination } from "../shared/components/Pagination";
+import { SearchInput } from "../shared/components/SearchInput";
+import { Table, type TableColumn } from "../shared/components/Table";
+import { Toast, type Notificacao } from "../shared/components/Toast";
+import { Toggle } from "../shared/components/Toggle";
+import { Input } from "../shared/components/Field";
 
-import { Button } from '../shared/components/Button'
-import { Filter, type FilterOption } from '../shared/components/Filter'
-import { Icon } from '../shared/components/Icon'
-import { Loading } from '../shared/components/Loading'
-import { Modal } from '../shared/components/Modal'
-import { Pagination } from '../shared/components/Pagination'
-import { SearchInput } from '../shared/components/SearchInput'
-import { Table, type TableColumn } from '../shared/components/Table'
-import { Toast, type Notificacao } from '../shared/components/Toast'
-import { Toggle } from '../shared/components/Toggle'
-import { Input } from '../shared/components/Field'
-
-import { useStations } from '../hooks/useStations'
-import { useAuthorization } from '../auth/useAuthorization'
+import { useStations } from "../hooks/useStations";
+import { useAuthorization } from "../auth/useAuthorization";
 
 import {
   StationConflictError,
   StationForbiddenError,
-} from '../services/stations/stations.errors'
+} from "../services/stations/stations.errors";
 
 import type {
   Station,
@@ -28,7 +27,7 @@ import type {
   FilterStatus,
   StationCoordinates,
   StationsProps,
-} from '../types/stations'
+} from "../types/stations";
 
 export type {
   Station,
@@ -36,10 +35,10 @@ export type {
   FilterStatus,
   StationCoordinates,
   StationsProps,
-}
+};
 
 interface StationsLocationState {
-  openNewStationModal?: boolean
+  openNewStationModal?: boolean;
 }
 
 export function StatusBadge({ status }: { status: StationStatus }) {
@@ -48,27 +47,27 @@ export function StatusBadge({ status }: { status: StationStatus }) {
     { badgeClass: string; dotClass: string; label: string }
   > = {
     Ativa: {
-      badgeClass: 'bg-success/15 text-success border-success/30',
-      dotClass: 'bg-success',
-      label: 'Ativa',
+      badgeClass: "bg-success/15 text-success border-success/30",
+      dotClass: "bg-success",
+      label: "Ativa",
     },
     Inativa: {
-      badgeClass: 'bg-neutral/40 text-muted border-line',
-      dotClass: 'bg-muted/70',
-      label: 'Inativa',
+      badgeClass: "bg-neutral/40 text-muted border-line",
+      dotClass: "bg-muted/70",
+      label: "Inativa",
     },
-    'Com Falha': {
-      badgeClass: 'bg-warning/15 text-warning border-warning/30',
-      dotClass: 'bg-warning',
-      label: 'Com Falha',
+    "Com Falha": {
+      badgeClass: "bg-warning/15 text-warning border-warning/30",
+      dotClass: "bg-warning",
+      label: "Com Falha",
     },
-  }
+  };
 
   const current = configs[status] ?? {
-    badgeClass: 'bg-base-300 text-muted border-line',
-    dotClass: 'bg-muted',
+    badgeClass: "bg-base-300 text-muted border-line",
+    dotClass: "bg-muted",
     label: status,
-  }
+  };
 
   return (
     <span
@@ -77,47 +76,47 @@ export function StatusBadge({ status }: { status: StationStatus }) {
       <span className={`size-1.5 rounded-full shrink-0 ${current.dotClass}`} />
       {current.label}
     </span>
-  )
+  );
 }
 
 function formatDateTime(value?: string | Date | null): string {
-  if (!value) return '—'
+  if (!value) return "—";
 
-  const date = typeof value === 'string' ? new Date(value) : value
+  const date = typeof value === "string" ? new Date(value) : value;
 
-  if (isNaN(date.getTime())) return '—'
+  if (isNaN(date.getTime())) return "—";
 
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 const plural = (n: number, um: string, varios: string) =>
-  `${n} ${n === 1 ? um : varios}`
+  `${n} ${n === 1 ? um : varios}`;
 
 function getCoordinateValue(value: unknown): number {
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : 0
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
 export function BatteryBadge({ level }: { level?: number | null }) {
   if (level === null || level === undefined) {
-    return <span className="text-muted text-xs font-mono">—</span>
+    return <span className="text-muted text-xs font-mono">—</span>;
   }
 
-  let colorClass = 'text-success'
-  let bgClass = 'bg-success/15 border-success/30'
+  let colorClass = "text-success";
+  let bgClass = "bg-success/15 border-success/30";
 
   if (level <= 20) {
-    colorClass = 'text-error'
-    bgClass = 'bg-error/15 border-error/30'
+    colorClass = "text-error";
+    bgClass = "bg-error/15 border-error/30";
   } else if (level <= 50) {
-    colorClass = 'text-warning'
-    bgClass = 'bg-warning/15 border-warning/30'
+    colorClass = "text-warning";
+    bgClass = "bg-warning/15 border-warning/30";
   }
 
   return (
@@ -126,12 +125,12 @@ export function BatteryBadge({ level }: { level?: number | null }) {
     >
       {level}%
     </span>
-  )
+  );
 }
 
 export function Stations({ initialStations }: StationsProps = {}) {
-  const location = useLocation()
-  const navigate = useNavigate()
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const {
     usuario,
@@ -139,9 +138,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
     canViewStations,
     canCreateStation,
     canToggleStation,
-  } = useAuthorization()
+  } = useAuthorization();
 
-  const isAdmin = hasRole('ADMINISTRADOR')
+  const isAdmin = hasRole("ADMINISTRADOR");
 
   const {
     stations,
@@ -154,170 +153,174 @@ export function Stations({ initialStations }: StationsProps = {}) {
   } = useStations({
     initialStations,
     autoFetch: canViewStations,
-  })
+  });
 
-  const [notification, setNotification] = useState<Notificacao | null>(null)
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('Todas')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [notification, setNotification] = useState<Notificacao | null>(null);
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>("Todas");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const [isNewStationModalOpen, setIsNewStationModalOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedStation, setSelectedStation] = useState<Station | null>(null)
+  const [isNewStationModalOpen, setIsNewStationModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
 
-  const [formCodigo, setFormCodigo] = useState('')
-  const [formNome, setFormNome] = useState('')
-  const [formMunicipio, setFormMunicipio] = useState('')
-  const [formLat, setFormLat] = useState('')
-  const [formLon, setFormLon] = useState('')
+  const [formCodigo, setFormCodigo] = useState("");
+  const [formNome, setFormNome] = useState("");
+  const [formMunicipio, setFormMunicipio] = useState("");
+  const [formLat, setFormLat] = useState("");
+  const [formLon, setFormLon] = useState("");
 
   // Permite abrir o modal ao navegar da Visão Geral para o inventário.
+  // O callback agendado evita atualizar o estado diretamente no efeito.
   useEffect(() => {
-    const state = location.state as StationsLocationState | null
+    const state = location.state as StationsLocationState | null;
 
-    if (!state?.openNewStationModal || !canCreateStation) return
+    if (!state?.openNewStationModal || !canCreateStation) return;
 
-    setIsNewStationModalOpen(true)
+    const timeout = window.setTimeout(() => {
+      setIsNewStationModalOpen(true);
 
-    // Limpa o estado para não abrir o modal novamente ao atualizar a página.
-    navigate(location.pathname, {
-      replace: true,
-      state: null,
-    })
-  }, [location.pathname, location.state, navigate, canCreateStation])
+      navigate(location.pathname, {
+        replace: true,
+        state: null,
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [location.pathname, location.state, navigate, canCreateStation]);
 
   const notify = useCallback(
-    (message: string, type: 'success' | 'error' = 'success') => {
+    (message: string, type: "success" | "error" = "success") => {
       setNotification({
         id: Date.now(),
         message,
         type,
-      })
+      });
     },
     [],
-  )
+  );
 
   const handleRefresh = useCallback(async () => {
     try {
-      await refresh()
-      notify('Dados de estações atualizados.', 'success')
+      await refresh();
+      notify("Dados de estações atualizados.", "success");
     } catch (error) {
       if (error instanceof StationForbiddenError) {
-        notify(error.message, 'error')
+        notify(error.message, "error");
       } else {
-        notify('Falha ao sincronizar com a fonte de dados.', 'error')
+        notify("Falha ao sincronizar com a fonte de dados.", "error");
       }
 
-      console.error(error)
+      console.error(error);
     }
-  }, [refresh, notify])
+  }, [refresh, notify]);
 
   const counts = useMemo(() => {
     const count = (status: StationStatus) =>
-      stations.filter((station) => station.status === status).length
+      stations.filter((station) => station.status === status).length;
 
     return {
       total: stations.length,
-      ativas: count('Ativa'),
-      inativas: count('Inativa'),
-      comFalha: count('Com Falha'),
-    }
-  }, [stations])
+      ativas: count("Ativa"),
+      inativas: count("Inativa"),
+      comFalha: count("Com Falha"),
+    };
+  }, [stations]);
 
   const filterOptions: FilterOption<FilterStatus>[] = useMemo(
     () => [
-      { label: 'Todas', value: 'Todas', count: counts.total },
-      { label: 'Ativas', value: 'Ativas', count: counts.ativas },
-      { label: 'Inativas', value: 'Inativas', count: counts.inativas },
-      { label: 'Com Falha', value: 'Com Falha', count: counts.comFalha },
+      { label: "Todas", value: "Todas", count: counts.total },
+      { label: "Ativas", value: "Ativas", count: counts.ativas },
+      { label: "Inativas", value: "Inativas", count: counts.inativas },
+      { label: "Com Falha", value: "Com Falha", count: counts.comFalha },
     ],
     [counts],
-  )
+  );
 
   const filteredStations = useMemo(() => {
     const statusDoFiltro: Record<FilterStatus, StationStatus | null> = {
       Todas: null,
-      Ativas: 'Ativa',
-      Inativas: 'Inativa',
-      'Com Falha': 'Com Falha',
-    }
+      Ativas: "Ativa",
+      Inativas: "Inativa",
+      "Com Falha": "Com Falha",
+    };
 
-    const alvo = statusDoFiltro[statusFilter]
+    const alvo = statusDoFiltro[statusFilter];
 
     return stations.filter((station) => {
-      if (alvo && station.status !== alvo) return false
+      if (alvo && station.status !== alvo) return false;
 
       if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim()
-        const matchCodigo = station.codigo.toLowerCase().includes(query)
-        const matchNome = station.nome.toLowerCase().includes(query)
+        const query = searchQuery.toLowerCase().trim();
+        const matchCodigo = station.codigo.toLowerCase().includes(query);
+        const matchNome = station.nome.toLowerCase().includes(query);
 
-        if (!matchCodigo && !matchNome) return false
+        if (!matchCodigo && !matchNome) return false;
       }
 
-      return true
-    })
-  }, [stations, statusFilter, searchQuery])
+      return true;
+    });
+  }, [stations, statusFilter, searchQuery]);
 
   const paginatedStations = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize
-    return filteredStations.slice(startIndex, startIndex + pageSize)
-  }, [filteredStations, currentPage, pageSize])
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredStations.slice(startIndex, startIndex + pageSize);
+  }, [filteredStations, currentPage, pageSize]);
 
-  const totalFiltered = filteredStations.length
+  const totalFiltered = filteredStations.length;
 
   const handleToggleStatus = useCallback(
     async (stationId: string) => {
       if (!canToggleStation) {
-        notify('Acesso negado. Perfil insuficiente para esta ação.', 'error')
-        return
+        notify("Acesso negado. Perfil insuficiente para esta ação.", "error");
+        return;
       }
 
-      const station = stations.find((item) => item.id === stationId)
+      const station = stations.find((item) => item.id === stationId);
 
-      if (!station) return
+      if (!station) return;
 
-      const nextAtivo = !station.ativo
+      const nextAtivo = !station.ativo;
 
       try {
-        await toggleStationStatus(stationId)
+        await toggleStationStatus(stationId);
 
         notify(
-          `Estação ${station.codigo} ${nextAtivo ? 'ativada' : 'desativada'} com sucesso!`,
-          'success',
-        )
+          `Estação ${station.codigo} ${nextAtivo ? "ativada" : "desativada"} com sucesso!`,
+          "success",
+        );
       } catch (error) {
         if (error instanceof StationForbiddenError) {
-          notify(error.message, 'error')
+          notify(error.message, "error");
         } else {
           notify(
             `Erro ao alterar o status da estação ${station.codigo}.`,
-            'error',
-          )
+            "error",
+          );
         }
 
-        console.error(error)
+        console.error(error);
       }
     },
     [stations, toggleStationStatus, notify, canToggleStation],
-  )
+  );
 
   const handleCreateStation = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!canCreateStation) {
-      notify('Acesso negado. Perfil insuficiente para esta ação.', 'error')
-      return
+      notify("Acesso negado. Perfil insuficiente para esta ação.", "error");
+      return;
     }
 
     if (!formCodigo.trim() || !formNome.trim()) {
-      notify('Por favor, preencha todos os campos obrigatórios.', 'error')
-      return
+      notify("Por favor, preencha todos os campos obrigatórios.", "error");
+      return;
     }
 
-    const latitude = parseFloat(formLat)
-    const longitude = parseFloat(formLon)
+    const latitude = parseFloat(formLat);
+    const longitude = parseFloat(formLon);
 
     if (
       isNaN(latitude) ||
@@ -327,31 +330,31 @@ export function Stations({ initialStations }: StationsProps = {}) {
       longitude < -180 ||
       longitude > 180
     ) {
-      notify('Coordenadas geográficas fora dos limites válidos.', 'error')
-      return
+      notify("Coordenadas geográficas fora dos limites válidos.", "error");
+      return;
     }
 
     // ADMINISTRADOR informa o município da estação.
     // GESTOR_PUBLICO utiliza o município vinculado ao token.
-    const municipioAdmin = formMunicipio.trim()
+    const municipioAdmin = formMunicipio.trim();
 
     if (isAdmin && !municipioAdmin) {
-      notify('Informe o município da estação.', 'error')
-      return
+      notify("Informe o município da estação.", "error");
+      return;
     }
 
     if (!isAdmin && !usuario?.municipio?.trim()) {
       notify(
-        'Município do usuário não identificado para vincular à estação.',
-        'error',
-      )
-      return
+        "Município do usuário não identificado para vincular à estação.",
+        "error",
+      );
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      const normalizedCodigo = formCodigo.trim().toUpperCase()
+      const normalizedCodigo = formCodigo.trim().toUpperCase();
 
       await createStation({
         codigo: normalizedCodigo,
@@ -359,37 +362,37 @@ export function Stations({ initialStations }: StationsProps = {}) {
         latitude,
         longitude,
         ...(isAdmin ? { municipio: municipioAdmin } : {}),
-      })
+      });
 
-      notify('Estação meteorológica cadastrada com sucesso.', 'success')
+      notify("Estação meteorológica cadastrada com sucesso.", "success");
 
-      setFormCodigo('')
-      setFormNome('')
-      setFormMunicipio('')
-      setFormLat('')
-      setFormLon('')
-      setIsNewStationModalOpen(false)
+      setFormCodigo("");
+      setFormNome("");
+      setFormMunicipio("");
+      setFormLat("");
+      setFormLon("");
+      setIsNewStationModalOpen(false);
     } catch (error: unknown) {
       if (error instanceof StationConflictError) {
-        notify('Identificador de estação já cadastrado no sistema.', 'error')
+        notify("Identificador de estação já cadastrado no sistema.", "error");
       } else if (error instanceof StationForbiddenError) {
-        notify(error.message, 'error')
+        notify(error.message, "error");
       } else {
-        notify('Erro ao cadastrar nova estação.', 'error')
-        console.error(error)
+        notify("Erro ao cadastrar nova estação.", "error");
+        console.error(error);
       }
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const columns: TableColumn<Station>[] = useMemo(() => {
     const baseColumns: TableColumn<Station>[] = [
       {
-        key: 'codigo',
-        header: 'Código',
+        key: "codigo",
+        header: "Código",
         sortable: true,
-        width: '140px',
+        width: "140px",
         render: (item) => (
           <button
             type="button"
@@ -402,55 +405,55 @@ export function Stations({ initialStations }: StationsProps = {}) {
         ),
       },
       {
-        key: 'nome',
-        header: 'Nome da Localidade',
+        key: "nome",
+        header: "Nome da Localidade",
         sortable: true,
         render: (item) => (
           <span className="font-medium text-base-content">{item.nome}</span>
         ),
       },
       {
-        key: 'coordenadas',
-        header: 'Coordenadas (Lat/Lon)',
+        key: "coordenadas",
+        header: "Coordenadas (Lat/Lon)",
         sortable: false,
-        width: '170px',
+        width: "170px",
         render: (item) => {
           const latitude = getCoordinateValue(
             item.latitude ?? item.coordenadas?.latitude,
-          )
+          );
           const longitude = getCoordinateValue(
             item.longitude ?? item.coordenadas?.longitude,
-          )
+          );
 
           return (
             <span className="font-mono text-xs text-muted">
               {latitude.toFixed(4)}, {longitude.toFixed(4)}
             </span>
-          )
+          );
         },
       },
       {
-        key: 'status',
-        header: 'Status',
-        align: 'center',
+        key: "status",
+        header: "Status",
+        align: "center",
         sortable: true,
-        width: '130px',
+        width: "130px",
         render: (item) => <StatusBadge status={item.status} />,
       },
       {
-        key: 'nivel_bateria',
-        header: 'Nível da Bateria',
-        align: 'center',
+        key: "nivel_bateria",
+        header: "Nível da Bateria",
+        align: "center",
         sortable: true,
-        width: '130px',
+        width: "130px",
         render: (item) => <BatteryBadge level={item.nivel_bateria} />,
       },
       {
-        key: 'ultimo_ping',
-        header: 'Último Ping',
-        align: 'center',
+        key: "ultimo_ping",
+        header: "Último Ping",
+        align: "center",
         sortable: true,
-        width: '150px',
+        width: "150px",
         render: (item) => (
           <span className="font-mono text-xs text-muted">
             {formatDateTime(item.ultimo_ping)}
@@ -458,35 +461,35 @@ export function Stations({ initialStations }: StationsProps = {}) {
         ),
       },
       {
-        key: 'criado_em',
-        header: 'Criado em',
-        align: 'center',
+        key: "criado_em",
+        header: "Criado em",
+        align: "center",
         sortable: true,
-        width: '150px',
+        width: "150px",
         render: (item) => (
           <span className="font-mono text-xs text-muted">
             {formatDateTime(item.criado_em ?? item.criadoEm)}
           </span>
         ),
       },
-    ]
+    ];
 
     if (canToggleStation) {
       baseColumns.push({
-        key: 'actions',
-        header: 'Ações',
-        align: 'right',
-        width: '90px',
+        key: "actions",
+        header: "Ações",
+        align: "right",
+        width: "90px",
         render: (item) => {
           // O PATCH só aceita Ativa/Inativa; não deve apagar o status "Com Falha".
-          const comFalha = item.status === 'Com Falha'
+          const comFalha = item.status === "Com Falha";
 
           return (
             <div
               className="flex items-center justify-end"
               title={
                 comFalha
-                  ? 'Estação com falha: o status não pode ser alternado.'
+                  ? "Estação com falha: o status não pode ser alternado."
                   : undefined
               }
             >
@@ -498,13 +501,13 @@ export function Stations({ initialStations }: StationsProps = {}) {
                 onChange={() => handleToggleStatus(item.id)}
               />
             </div>
-          )
+          );
         },
-      })
+      });
     }
 
-    return baseColumns
-  }, [togglingId, handleToggleStatus, canToggleStation])
+    return baseColumns;
+  }, [togglingId, handleToggleStatus, canToggleStation]);
 
   if (!canViewStations) {
     return (
@@ -533,12 +536,13 @@ export function Stations({ initialStations }: StationsProps = {}) {
             <h2 className="text-lg font-semibold text-error">Acesso Negado</h2>
 
             <p className="text-sm text-base-content/80 max-w-md">
-              Você não possui permissão para visualizar o inventário de estações.
+              Você não possui permissão para visualizar o inventário de
+              estações.
             </p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -564,7 +568,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
               </div>
 
               <div>
-                <span className="text-xs text-muted block">Nome da Localidade:</span>
+                <span className="text-xs text-muted block">
+                  Nome da Localidade:
+                </span>
                 <span className="font-medium text-base-content text-sm">
                   {selectedStation.nome}
                 </span>
@@ -582,12 +588,12 @@ export function Stations({ initialStations }: StationsProps = {}) {
               <div>
                 <span className="text-xs text-muted block">Coordenadas:</span>
                 <span className="font-mono text-xs text-base-content">
-                  Lat:{' '}
+                  Lat:{" "}
                   {getCoordinateValue(
                     selectedStation.latitude ??
                       selectedStation.coordenadas?.latitude,
-                  ).toFixed(4)}{' '}
-                  | Lon:{' '}
+                  ).toFixed(4)}{" "}
+                  | Lon:{" "}
                   {getCoordinateValue(
                     selectedStation.longitude ??
                       selectedStation.coordenadas?.longitude,
@@ -602,13 +608,15 @@ export function Stations({ initialStations }: StationsProps = {}) {
                 </div>
 
                 <div className="text-right">
-                  <span className="text-xs text-muted block mb-1">Operacional:</span>
+                  <span className="text-xs text-muted block mb-1">
+                    Operacional:
+                  </span>
                   <span
                     className={`text-xs font-semibold ${
-                      selectedStation.ativo ? 'text-success' : 'text-muted'
+                      selectedStation.ativo ? "text-success" : "text-muted"
                     }`}
                   >
-                    {selectedStation.ativo ? 'Ligada' : 'Desligada'}
+                    {selectedStation.ativo ? "Ligada" : "Desligada"}
                   </span>
                 </div>
               </div>
@@ -632,7 +640,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
               </div>
 
               <div className="pt-2 border-t border-line/50">
-                <span className="text-xs text-muted block mb-1">Criado em:</span>
+                <span className="text-xs text-muted block mb-1">
+                  Criado em:
+                </span>
                 <span className="font-mono text-xs text-base-content">
                   {formatDateTime(
                     selectedStation.criado_em ?? selectedStation.criadoEm,
@@ -729,11 +739,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
                 Cancelar
               </Button>
 
-              <Button
-                variant="primary"
-                type="submit"
-                busy={isSubmitting}
-              >
+              <Button variant="primary" type="submit" busy={isSubmitting}>
                 Salvar Estação
               </Button>
             </div>
@@ -749,9 +755,13 @@ export function Stations({ initialStations }: StationsProps = {}) {
             </h1>
 
             <p className="mt-1 text-sm text-muted">
-              {plural(counts.total, 'estação cadastrada', 'estações cadastradas')}
-              {' · '}
-              {plural(counts.ativas, 'ativa', 'ativas')}
+              {plural(
+                counts.total,
+                "estação cadastrada",
+                "estações cadastradas",
+              )}
+              {" · "}
+              {plural(counts.ativas, "ativa", "ativas")}
               {counts.comFalha > 0 && ` · ${counts.comFalha} com falha`}
             </p>
           </div>
@@ -789,8 +799,8 @@ export function Stations({ initialStations }: StationsProps = {}) {
               options={filterOptions}
               value={statusFilter}
               onChange={(val) => {
-                setStatusFilter(val as FilterStatus)
-                setCurrentPage(1)
+                setStatusFilter(val as FilterStatus);
+                setCurrentPage(1);
               }}
               showReset={false}
             />
@@ -802,16 +812,16 @@ export function Stations({ initialStations }: StationsProps = {}) {
               value={searchQuery}
               loading={loading}
               onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setCurrentPage(1)
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
               }}
               onClear={() => {
-                setSearchQuery('')
-                setCurrentPage(1)
+                setSearchQuery("");
+                setCurrentPage(1);
               }}
               onSearch={(val) => {
-                setSearchQuery(val)
-                setCurrentPage(1)
+                setSearchQuery(val);
+                setCurrentPage(1);
               }}
             />
           </div>
@@ -847,9 +857,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
                 data={paginatedStations}
                 loading={loading}
                 emptyMessage={
-                  searchQuery || statusFilter !== 'Todas'
-                    ? 'Nenhuma estação encontrada com os filtros aplicados.'
-                    : 'Nenhuma estação cadastrada.'
+                  searchQuery || statusFilter !== "Todas"
+                    ? "Nenhuma estação encontrada com os filtros aplicados."
+                    : "Nenhuma estação cadastrada."
                 }
                 keyExtractor={(item) => item.id}
                 containerClassName="border-0 rounded-none bg-transparent shadow-none"
@@ -861,21 +871,21 @@ export function Stations({ initialStations }: StationsProps = {}) {
                 total={totalFiltered}
                 onPage={(page) => setCurrentPage(page)}
                 onPageSize={(size) => {
-                  setPageSize(size)
-                  setCurrentPage(1)
+                  setPageSize(size);
+                  setCurrentPage(1);
                 }}
                 itemLabel="estações"
                 infoText={
                   <span className="text-[13px] text-muted">
-                    Mostrando{' '}
+                    Mostrando{" "}
                     <strong className="text-base-content font-semibold">
                       {totalFiltered}
-                    </strong>{' '}
-                    de{' '}
+                    </strong>{" "}
+                    de{" "}
                     <strong className="text-base-content font-semibold">
                       {counts.total}
-                    </strong>{' '}
-                    {counts.total === 1 ? 'estação' : 'estações'}
+                    </strong>{" "}
+                    {counts.total === 1 ? "estação" : "estações"}
                   </span>
                 }
               />
@@ -884,7 +894,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default Stations
+export default Stations;
