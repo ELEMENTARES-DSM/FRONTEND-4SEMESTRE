@@ -31,7 +31,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'grandezas.view',
   ],
   PESQUISADOR: [],
-  MUNICIPE: [],
+  MUNICIPE: [
+    'stations.view',
+  ],
 }
 
 export function getPermissionsForRole(papel?: string | null): readonly Permission[] {

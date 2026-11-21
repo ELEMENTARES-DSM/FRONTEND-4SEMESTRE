@@ -1,9 +1,12 @@
+
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { EstacaoStatus } from "../../services/estacoesService";
 import { Button } from "../../shared/components/Button";
 import { Input, Select } from "../../shared/components/Field";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import { stationsService } from "../../services/stations/stations.service";
+import { StationForbiddenError } from "../../services/stations/stations.errors";
 
 export interface IqarBandInfo {
   key: "boa" | "moderada" | "ruim" | "muito_ruim" | "pessima";
@@ -17,7 +20,7 @@ export const IQAR_BANDS: IqarBandInfo[] = [
   { key: "boa", label: "Boa", range: "0–40", color: "#22C55E", bg: "#22C55E1F" },
   { key: "moderada", label: "Moderada", range: "41–80", color: "#FACC15", bg: "#FACC151F" },
   { key: "ruim", label: "Ruim", range: "81–120", color: "#FB923C", bg: "#FB923C1F" },
-  { key: "muito_ruim", label: "Muito Ruim", range: "121–200", color: "#EF4444", bg: "#EF44441F" },
+  { key: "muito_ruim", label: "Muito Ruim", range: "121–199", color: "#EF4444", bg: "#EF44441F" },
   { key: "pessima", label: "Péssima", range: "200+", color: "#A855F7", bg: "#A855F71F" },
 ];
 
@@ -25,24 +28,33 @@ export function getIqarBand(iqar: number): IqarBandInfo {
   if (iqar <= 40) return IQAR_BANDS[0];
   if (iqar <= 80) return IQAR_BANDS[1];
   if (iqar <= 120) return IQAR_BANDS[2];
-  if (iqar <= 200) return IQAR_BANDS[3];
+  if (iqar < 200) return IQAR_BANDS[3];
   return IQAR_BANDS[4];
 }
 
 interface StationsTableProps {
   estacoes: EstacaoStatus[];
   isAdmin?: boolean;
-  podeGerenciar?: boolean;
+  podeCriar?: boolean;
+  podeAlterarStatus?: boolean;
+  onStatusAlterado?: () => Promise<void> | void;
 }
 
 export function StationsTable({
   estacoes,
   isAdmin = false,
-  podeGerenciar = false,
+  podeCriar = false,
+  podeAlterarStatus = false,
+  onStatusAlterado,
 }: StationsTableProps) {
   const navigate = useNavigate();
+
   const [busca, setBusca] = useState("");
   const [municipioFiltro, setMunicipioFiltro] = useState("Todos");
+  const [inativandoId, setInativandoId] = useState<string | null>(null);
+  const [erroStatus, setErroStatus] = useState<string | null>(null);
+
+  const temAcoes = podeAlterarStatus;
 
   const municipiosDisponiveis = useMemo(() => {
     const unicos = new Set(
@@ -50,6 +62,7 @@ export function StationsTable({
         .map((e) => e.municipio)
         .filter((m): m is string => Boolean(m && m.trim())),
     );
+
     return Array.from(unicos).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [estacoes]);
 
@@ -82,19 +95,57 @@ export function StationsTable({
     }
   }
 
+  async function handleAlterarStatus(estacao: EstacaoStatus) {
+    if (
+      !podeAlterarStatus ||
+      estacao.status_operacional === "Inativa" && inativandoId !== null ||
+      inativandoId !== null
+    ) {
+      return;
+    }
+
+    const ativar = estacao.status_operacional === "Inativa";
+
+    setInativandoId(estacao.id);
+    setErroStatus(null);
+
+    try {
+      await stationsService.updateStationStatus(
+        estacao.id,
+        ativar,
+        ativar ? "Ativa" : "Inativa",
+      );
+
+      await onStatusAlterado?.();
+    } catch (error) {
+      if (error instanceof StationForbiddenError) {
+        setErroStatus(error.message);
+      } else {
+        setErroStatus(
+          `Não foi possível ${ativar ? "ativar" : "inativar"} a estação ${estacao.codigo}.`,
+        );
+      }
+
+      console.error("Erro ao alterar status da estação:", error);
+    } finally {
+      setInativandoId(null);
+    }
+  }
+
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-[#111C38]">
-      {/* Cabeçalho da tabela e filtros */}
       <div className="flex flex-col gap-4 border-b border-line p-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-slate-100">
               Estações monitoradas
             </h2>
+
             <span className="rounded-full bg-teal-500/15 px-2.5 py-0.5 text-xs font-semibold text-teal-400">
               {estacoesFiltradas.length} estações
             </span>
           </div>
+
           <p className="mt-1 text-xs text-muted">
             Atualização automática a cada 5 minutos
           </p>
@@ -118,6 +169,7 @@ export function StationsTable({
                 onChange={(event) => setMunicipioFiltro(event.target.value)}
               >
                 <option value="Todos">Todos os municípios</option>
+
                 {municipiosDisponiveis.map((municipio) => (
                   <option key={municipio} value={municipio}>
                     {municipio}
@@ -127,19 +179,29 @@ export function StationsTable({
             </div>
           )}
 
-          {podeGerenciar ? (
-            <Button onClick={() => navigate("/platform/estacoes/nova")}>
-              + Nova estação
+          {podeCriar && (
+            <Button
+              onClick={() =>
+                navigate("/platform/territory", {
+                  state: { abrirNovaEstacao: true },
+                })
+              }
+            >
+              + Nova Estação
             </Button>
-          ) : (
-            <span className="inline-flex h-10 items-center rounded-lg border border-line bg-[#0B1120]/60 px-3 text-xs text-muted">
-              Somente leitura
-            </span>
           )}
         </div>
       </div>
 
-      {/* Tabela */}
+      {erroStatus && (
+        <div
+          role="alert"
+          className="border-b border-error/30 bg-error/10 px-4 py-3 text-sm text-error"
+        >
+          {erroStatus}
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="table w-full">
           <thead>
@@ -149,7 +211,7 @@ export function StationsTable({
               <th>Status</th>
               <th>Último Sinal</th>
               <th>IQAr atual</th>
-              {podeGerenciar && <th className="text-right">Ações</th>}
+              {temAcoes && <th className="text-right">Ações</th>}
             </tr>
           </thead>
 
@@ -157,7 +219,7 @@ export function StationsTable({
             {estacoesFiltradas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isAdmin ? (podeGerenciar ? 6 : 5) : podeGerenciar ? 5 : 4}
+                  colSpan={(isAdmin ? 5 : 4) + (temAcoes ? 1 : 0)}
                   className="py-10 text-center text-muted"
                 >
                   Nenhuma estação encontrada.
@@ -192,10 +254,12 @@ export function StationsTable({
                             <path d="M4.5 3a4.5 4.5 0 0 0 0 6M10.5 3a4.5 4.5 0 0 1 0 6M7.5 7.5V13M5.5 13h4" />
                           </svg>
                         </span>
+
                         <span>
                           <span className="block font-medium text-slate-100 group-hover:text-teal-400 group-hover:underline">
                             {estacao.nome}
                           </span>
+
                           <span className="block font-mono text-[11px] text-muted">
                             {estacao.codigo}
                           </span>
@@ -217,14 +281,14 @@ export function StationsTable({
                       >
                         <span
                           aria-hidden="true"
-                          className={`size-1.5 rounded-full ${
-                            estacao.status_operacional === "Ativa"
-                              ? "bg-success"
-                              : estacao.status_operacional === "Com Falha"
-                                ? "bg-error"
-                                : "bg-muted"
-                          }`}
+                          className={`size-1.5 rounded-full ${estacao.status_operacional === "Ativa"
+                            ? "bg-success"
+                            : estacao.status_operacional === "Com Falha"
+                              ? "bg-error"
+                              : "bg-muted"
+                            }`}
                         />
+
                         {estacao.status_operacional}
                       </span>
                     </td>
@@ -250,6 +314,7 @@ export function StationsTable({
                           >
                             {estacao.iqar}
                           </span>
+
                           <span
                             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
                             style={{
@@ -262,37 +327,35 @@ export function StationsTable({
                               className="size-1.5 rounded-full"
                               style={{ backgroundColor: faixaIqar.color }}
                             />
+
                             {faixaIqar.label}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted">Sem leitura</span>
+                        <span className="text-xs text-muted">
+                          Sem leitura
+                        </span>
                       )}
                     </td>
 
-                    {podeGerenciar && (
+                    {temAcoes && (
                       <td className="text-right">
                         <div className="inline-flex items-center justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              navigate(`/platform/estacoes/${estacao.id}/editar`)
-                            }
-                            className="rounded-lg border border-line bg-[#0B1120] px-2.5 py-1 text-xs font-medium text-slate-200 hover:border-teal-500/50"
+                            onClick={() => handleAlterarStatus(estacao)}
+                            disabled={inativandoId !== null}
+                            className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${estacao.status_operacional === "Inativa"
+                                ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
+                                : "border-error/30 bg-error/10 text-error hover:bg-error/20"
+                              }`}
                           >
-                            Editar
+                            {inativandoId === estacao.id
+                              ? "Atualizando..."
+                              : estacao.status_operacional === "Inativa"
+                                ? "Ativar"
+                                : "Inativar"}
                           </button>
-                          {estacao.status_operacional !== "Inativa" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate(`/platform/estacoes/${estacao.id}`)
-                              }
-                              className="rounded-lg border border-error/30 bg-error/10 px-2.5 py-1 text-xs font-medium text-error hover:bg-error/20"
-                            >
-                              Inativar
-                            </button>
-                          )}
                         </div>
                       </td>
                     )}
@@ -304,17 +367,18 @@ export function StationsTable({
         </table>
       </div>
 
-      {/* Legenda das 5 faixas oficiais do IQAr */}
       <div className="flex flex-wrap items-center gap-4 border-t border-line px-5 py-3 text-[11px] text-muted">
         <span className="text-[10px] font-semibold uppercase tracking-wider">
           Faixas IQAr:
         </span>
+
         {IQAR_BANDS.map((band) => (
           <span key={band.key} className="inline-flex items-center gap-1.5">
             <span
               className="size-2 rounded-full"
               style={{ backgroundColor: band.color }}
             />
+
             {band.label} ({band.range})
           </span>
         ))}

@@ -1,4 +1,7 @@
-import { useState, useMemo, useCallback } from 'react'
+
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+
 import { Button } from '../shared/components/Button'
 import { Filter, type FilterOption } from '../shared/components/Filter'
 import { Icon } from '../shared/components/Icon'
@@ -10,12 +13,15 @@ import { Table, type TableColumn } from '../shared/components/Table'
 import { Toast, type Notificacao } from '../shared/components/Toast'
 import { Toggle } from '../shared/components/Toggle'
 import { Input } from '../shared/components/Field'
+
 import { useStations } from '../hooks/useStations'
 import { useAuthorization } from '../auth/useAuthorization'
+
 import {
   StationConflictError,
   StationForbiddenError,
 } from '../services/stations/stations.errors'
+
 import type {
   Station,
   StationStatus,
@@ -30,6 +36,10 @@ export type {
   FilterStatus,
   StationCoordinates,
   StationsProps,
+}
+
+interface StationsLocationState {
+  openNewStationModal?: boolean
 }
 
 export function StatusBadge({ status }: { status: StationStatus }) {
@@ -72,8 +82,11 @@ export function StatusBadge({ status }: { status: StationStatus }) {
 
 function formatDateTime(value?: string | Date | null): string {
   if (!value) return '—'
+
   const date = typeof value === 'string' ? new Date(value) : value
+
   if (isNaN(date.getTime())) return '—'
+
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -83,7 +96,8 @@ function formatDateTime(value?: string | Date | null): string {
   }).format(date)
 }
 
-const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
+const plural = (n: number, um: string, varios: string) =>
+  `${n} ${n === 1 ? um : varios}`
 
 function getCoordinateValue(value: unknown): number {
   const numeric = Number(value)
@@ -116,8 +130,17 @@ export function BatteryBadge({ level }: { level?: number | null }) {
 }
 
 export function Stations({ initialStations }: StationsProps = {}) {
-  const { usuario, hasRole, canViewStations, canCreateStation, canToggleStation } =
-    useAuthorization()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const {
+    usuario,
+    hasRole,
+    canViewStations,
+    canCreateStation,
+    canToggleStation,
+  } = useAuthorization()
+
   const isAdmin = hasRole('ADMINISTRADOR')
 
   const {
@@ -128,7 +151,10 @@ export function Stations({ initialStations }: StationsProps = {}) {
     refresh,
     createStation,
     toggleStationStatus,
-  } = useStations({ initialStations, autoFetch: canViewStations })
+  } = useStations({
+    initialStations,
+    autoFetch: canViewStations,
+  })
 
   const [notification, setNotification] = useState<Notificacao | null>(null)
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('Todas')
@@ -145,6 +171,21 @@ export function Stations({ initialStations }: StationsProps = {}) {
   const [formMunicipio, setFormMunicipio] = useState('')
   const [formLat, setFormLat] = useState('')
   const [formLon, setFormLon] = useState('')
+
+  // Permite abrir o modal ao navegar da Visão Geral para o inventário.
+  useEffect(() => {
+    const state = location.state as StationsLocationState | null
+
+    if (!state?.openNewStationModal || !canCreateStation) return
+
+    setIsNewStationModalOpen(true)
+
+    // Limpa o estado para não abrir o modal novamente ao atualizar a página.
+    navigate(location.pathname, {
+      replace: true,
+      state: null,
+    })
+  }, [location.pathname, location.state, navigate, canCreateStation])
 
   const notify = useCallback(
     (message: string, type: 'success' | 'error' = 'success') => {
@@ -167,12 +208,14 @@ export function Stations({ initialStations }: StationsProps = {}) {
       } else {
         notify('Falha ao sincronizar com a fonte de dados.', 'error')
       }
+
       console.error(error)
     }
   }, [refresh, notify])
 
   const counts = useMemo(() => {
-    const count = (status: StationStatus) => stations.filter((s) => s.status === status).length
+    const count = (status: StationStatus) =>
+      stations.filter((station) => station.status === status).length
 
     return {
       total: stations.length,
@@ -199,6 +242,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
       Inativas: 'Inativa',
       'Com Falha': 'Com Falha',
     }
+
     const alvo = statusDoFiltro[statusFilter]
 
     return stations.filter((station) => {
@@ -208,6 +252,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
         const query = searchQuery.toLowerCase().trim()
         const matchCodigo = station.codigo.toLowerCase().includes(query)
         const matchNome = station.nome.toLowerCase().includes(query)
+
         if (!matchCodigo && !matchNome) return false
       }
 
@@ -229,13 +274,15 @@ export function Stations({ initialStations }: StationsProps = {}) {
         return
       }
 
-      const station = stations.find((s) => s.id === stationId)
+      const station = stations.find((item) => item.id === stationId)
+
       if (!station) return
 
       const nextAtivo = !station.ativo
 
       try {
         await toggleStationStatus(stationId)
+
         notify(
           `Estação ${station.codigo} ${nextAtivo ? 'ativada' : 'desativada'} com sucesso!`,
           'success',
@@ -244,8 +291,12 @@ export function Stations({ initialStations }: StationsProps = {}) {
         if (error instanceof StationForbiddenError) {
           notify(error.message, 'error')
         } else {
-          notify(`Erro ao alterar o status da estação ${station.codigo}.`, 'error')
+          notify(
+            `Erro ao alterar o status da estação ${station.codigo}.`,
+            'error',
+          )
         }
+
         console.error(error)
       }
     },
@@ -276,19 +327,24 @@ export function Stations({ initialStations }: StationsProps = {}) {
       longitude < -180 ||
       longitude > 180
     ) {
-      notify('Coordenadas geográficas fora dos limites válidos', 'error')
+      notify('Coordenadas geográficas fora dos limites válidos.', 'error')
       return
     }
 
-    // ADMINISTRADOR não tem município no JWT e informa o da estação;
-    // GESTOR_PUBLICO não envia: o back usa o município do token (US-03).
+    // ADMINISTRADOR informa o município da estação.
+    // GESTOR_PUBLICO utiliza o município vinculado ao token.
     const municipioAdmin = formMunicipio.trim()
+
     if (isAdmin && !municipioAdmin) {
       notify('Informe o município da estação.', 'error')
       return
     }
+
     if (!isAdmin && !usuario?.municipio?.trim()) {
-      notify('Município do usuário não identificado para vincular à estação.', 'error')
+      notify(
+        'Município do usuário não identificado para vincular à estação.',
+        'error',
+      )
       return
     }
 
@@ -305,7 +361,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
         ...(isAdmin ? { municipio: municipioAdmin } : {}),
       })
 
-      notify('Estação meteorológica cadastrada com sucesso', 'success')
+      notify('Estação meteorológica cadastrada com sucesso.', 'success')
 
       setFormCodigo('')
       setFormNome('')
@@ -315,7 +371,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
       setIsNewStationModalOpen(false)
     } catch (error: unknown) {
       if (error instanceof StationConflictError) {
-        notify('Identificador de estação já cadastrado no sistema', 'error')
+        notify('Identificador de estação já cadastrado no sistema.', 'error')
       } else if (error instanceof StationForbiddenError) {
         notify(error.message, 'error')
       } else {
@@ -359,13 +415,16 @@ export function Stations({ initialStations }: StationsProps = {}) {
         sortable: false,
         width: '170px',
         render: (item) => {
-          const latitude = getCoordinateValue(item.latitude ?? item.coordenadas?.latitude)
-          const longitude = getCoordinateValue(item.longitude ?? item.coordenadas?.longitude)
+          const latitude = getCoordinateValue(
+            item.latitude ?? item.coordenadas?.latitude,
+          )
+          const longitude = getCoordinateValue(
+            item.longitude ?? item.coordenadas?.longitude,
+          )
 
           return (
             <span className="font-mono text-xs text-muted">
-              {latitude.toFixed(4)},{' '}
-              {longitude.toFixed(4)}
+              {latitude.toFixed(4)}, {longitude.toFixed(4)}
             </span>
           )
         },
@@ -419,12 +478,17 @@ export function Stations({ initialStations }: StationsProps = {}) {
         align: 'right',
         width: '90px',
         render: (item) => {
-          // O PATCH só aceita Ativa/Inativa; alternar aqui apagaria o "Com Falha".
+          // O PATCH só aceita Ativa/Inativa; não deve apagar o status "Com Falha".
           const comFalha = item.status === 'Com Falha'
+
           return (
             <div
               className="flex items-center justify-end"
-              title={comFalha ? 'Estação com falha: o status não pode ser alternado.' : undefined}
+              title={
+                comFalha
+                  ? 'Estação com falha: o status não pode ser alternado.'
+                  : undefined
+              }
             >
               <Toggle
                 label={`Alternar status da estação ${item.codigo}`}
@@ -445,13 +509,18 @@ export function Stations({ initialStations }: StationsProps = {}) {
   if (!canViewStations) {
     return (
       <div className="min-h-screen bg-base-100 p-6 sm:p-10 text-base-content">
-        <Toast notification={notification} onClose={() => setNotification(null)} />
+        <Toast
+          notification={notification}
+          onClose={() => setNotification(null)}
+        />
+
         <div className="max-w-7xl mx-auto space-y-6">
           <header className="border-b border-line pb-6">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-base-content">
               Inventário de Estações
             </h1>
           </header>
+
           <div
             role="alert"
             aria-label="Acesso negado"
@@ -460,7 +529,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
             <div className="size-12 rounded-full bg-error/20 flex items-center justify-center text-error">
               <Icon name="alert" size={24} />
             </div>
+
             <h2 className="text-lg font-semibold text-error">Acesso Negado</h2>
+
             <p className="text-sm text-base-content/80 max-w-md">
               Você não possui permissão para visualizar o inventário de estações.
             </p>
@@ -472,7 +543,10 @@ export function Stations({ initialStations }: StationsProps = {}) {
 
   return (
     <div className="min-h-screen bg-base-100 p-6 sm:p-10 text-base-content">
-      <Toast notification={notification} onClose={() => setNotification(null)} />
+      <Toast
+        notification={notification}
+        onClose={() => setNotification(null)}
+      />
 
       {selectedStation && (
         <Modal
@@ -488,12 +562,14 @@ export function Stations({ initialStations }: StationsProps = {}) {
                   {selectedStation.codigo}
                 </span>
               </div>
+
               <div>
                 <span className="text-xs text-muted block">Nome da Localidade:</span>
                 <span className="font-medium text-base-content text-sm">
                   {selectedStation.nome}
                 </span>
               </div>
+
               {selectedStation.municipio && (
                 <div>
                   <span className="text-xs text-muted block">Município:</span>
@@ -502,18 +578,29 @@ export function Stations({ initialStations }: StationsProps = {}) {
                   </span>
                 </div>
               )}
+
               <div>
                 <span className="text-xs text-muted block">Coordenadas:</span>
                 <span className="font-mono text-xs text-base-content">
-                  Lat: {getCoordinateValue(selectedStation.latitude ?? selectedStation.coordenadas?.latitude).toFixed(4)} | Lon:{' '}
-                  {getCoordinateValue(selectedStation.longitude ?? selectedStation.coordenadas?.longitude).toFixed(4)}
+                  Lat:{' '}
+                  {getCoordinateValue(
+                    selectedStation.latitude ??
+                      selectedStation.coordenadas?.latitude,
+                  ).toFixed(4)}{' '}
+                  | Lon:{' '}
+                  {getCoordinateValue(
+                    selectedStation.longitude ??
+                      selectedStation.coordenadas?.longitude,
+                  ).toFixed(4)}
                 </span>
               </div>
+
               <div className="flex items-center justify-between pt-1">
                 <div>
                   <span className="text-xs text-muted block mb-1">Status:</span>
                   <StatusBadge status={selectedStation.status} />
                 </div>
+
                 <div className="text-right">
                   <span className="text-xs text-muted block mb-1">Operacional:</span>
                   <span
@@ -525,28 +612,40 @@ export function Stations({ initialStations }: StationsProps = {}) {
                   </span>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-line/50">
                 <div>
-                  <span className="text-xs text-muted block mb-1">Nível da Bateria:</span>
+                  <span className="text-xs text-muted block mb-1">
+                    Nível da Bateria:
+                  </span>
                   <BatteryBadge level={selectedStation.nivel_bateria} />
                 </div>
+
                 <div>
-                  <span className="text-xs text-muted block mb-1">Último Ping:</span>
+                  <span className="text-xs text-muted block mb-1">
+                    Último Ping:
+                  </span>
                   <span className="font-mono text-xs text-base-content">
                     {formatDateTime(selectedStation.ultimo_ping)}
                   </span>
                 </div>
               </div>
+
               <div className="pt-2 border-t border-line/50">
                 <span className="text-xs text-muted block mb-1">Criado em:</span>
                 <span className="font-mono text-xs text-base-content">
-                  {formatDateTime(selectedStation.criado_em ?? selectedStation.criadoEm)}
+                  {formatDateTime(
+                    selectedStation.criado_em ?? selectedStation.criadoEm,
+                  )}
                 </span>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setSelectedStation(null)}>
+              <Button
+                variant="secondary"
+                onClick={() => setSelectedStation(null)}
+              >
                 Fechar
               </Button>
             </div>
@@ -598,6 +697,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
                 onChange={(e) => setFormLat(e.target.value)}
                 required
               />
+
               <Input
                 label="Longitude *"
                 type="number"
@@ -613,6 +713,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
               <span className="mb-1.5 block text-xs font-semibold tracking-wide text-muted">
                 Status Inicial
               </span>
+
               <div className="flex items-center">
                 <StatusBadge status="Ativa" />
               </div>
@@ -627,7 +728,12 @@ export function Stations({ initialStations }: StationsProps = {}) {
               >
                 Cancelar
               </Button>
-              <Button variant="primary" type="submit" busy={isSubmitting}>
+
+              <Button
+                variant="primary"
+                type="submit"
+                busy={isSubmitting}
+              >
                 Salvar Estação
               </Button>
             </div>
@@ -641,8 +747,10 @@ export function Stations({ initialStations }: StationsProps = {}) {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-base-content">
               Inventário de Estações
             </h1>
+
             <p className="mt-1 text-sm text-muted">
-              {plural(counts.total, 'estação cadastrada', 'estações cadastradas')} ·{' '}
+              {plural(counts.total, 'estação cadastrada', 'estações cadastradas')}
+              {' · '}
               {plural(counts.ativas, 'ativa', 'ativas')}
               {counts.comFalha > 0 && ` · ${counts.comFalha} com falha`}
             </p>
@@ -659,10 +767,11 @@ export function Stations({ initialStations }: StationsProps = {}) {
               <Icon name="refresh" size={14} />
               <span className="hidden sm:inline">Atualizar</span>
             </Button>
+
             {canCreateStation && (
               <Button
                 variant="primary"
-                aria-label="+ Nova Estação"
+                aria-label="Nova Estação"
                 onClick={() => setIsNewStationModalOpen(true)}
                 className="w-full sm:w-auto"
               >
@@ -723,7 +832,9 @@ export function Stations({ initialStations }: StationsProps = {}) {
               <p className="text-sm font-semibold text-error">
                 Não foi possível carregar as estações.
               </p>
+
               <p className="text-xs text-muted">{error}</p>
+
               <Button variant="secondary" onClick={handleRefresh}>
                 <Icon name="refresh" size={14} />
                 Tentar novamente
