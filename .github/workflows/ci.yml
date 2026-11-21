@@ -2,60 +2,95 @@ name: CI Elementares
 
 on:
   push:
-    branches: [ "develop", "main" ]
+    branches: ["develop", "main"]
   pull_request:
-    branches: [ "develop", "main" ]
+    branches: ["develop", "main"]
 
 jobs:
   validacao-codigo:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-    - name: Fazer o Checkout do codigo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Fazer o Checkout do código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-    - name: Configurar Node.js
-      uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.0.4
-      with:
-        node-version: '24.x'
-        cache: 'npm'
+      - name: Configurar Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.0.4
+        with:
+          node-version: "24.x"
+          cache: "npm"
 
-    - name: Instalar dependencias
-      run: npm ci
+      - name: Instalar dependências
+        run: npm ci
 
-    - name: Criar arquivo .env
-      env:
-        VITE_API_URL: ${{ secrets.VITE_API_URL }}
-      run: |
-        echo "VITE_API_URL=$VITE_API_URL" >> .env
-        echo "VITE_AMBIENTE=producao" >> .env
+      - name: Criar arquivo .env e validar variáveis VITE_*
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL || '/' }}
+        run: |
+          echo "VITE_API_URL=$VITE_API_URL" > .env
+          echo "VITE_DEV_AUTH_BYPASS=false" >> .env
+          echo "VITE_AMBIENTE=producao" >> .env
+          echo "VITE_USE_MOCKS=false" >> .env
+          npm run validate:env
 
-    - name: Verificar tipagem TypeScript
-      run: npx tsc --noEmit
+      - name: Verificar tipagem TypeScript
+        run: npx tsc -p tsconfig.app.json --noEmit && npx tsc -p tsconfig.node.json --noEmit
 
-    - name: Rodar Linter
-      run: npm run lint --if-present
+      - name: Rodar Linter
+        run: npm run lint
 
-    - name: Rodar Testes
-      run: npm test --if-present -- --passWithNoTests
+      - name: Rodar Testes Unitários com Cobertura
+        run: npm test -- --coverage
 
-    - name: Fazer o Build
-      run: npm run build
+      - name: Publicar resumo de cobertura no PR
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e '
+              const fs = require("fs");
+              const data = JSON.parse(fs.readFileSync("coverage/coverage-summary.json", "utf8")).total;
+              const fmt = (m) => `${m.pct.toFixed(2)}% (${m.covered}/${m.total})`;
+              const md = [
+                "### Cobertura de Testes — Frontend",
+                "",
+                "| Métrica | Cobertura | Mínimo | Status |",
+                "|---|---:|---:|:---:|",
+                `| Statements | ${fmt(data.statements)} | 70% | ${data.statements.pct >= 70 ? "✅" : "❌"} |`,
+                `| Branches | ${fmt(data.branches)} | 70% | ${data.branches.pct >= 70 ? "✅" : "❌"} |`,
+                `| Functions | ${fmt(data.functions)} | 70% | ${data.functions.pct >= 70 ? "✅" : "❌"} |`,
+                `| Lines | ${fmt(data.lines)} | 70% | ${data.lines.pct >= 70 ? "✅" : "❌"} |`,
+                "",
+              ].join("\n");
+              if (process.env.GITHUB_STEP_SUMMARY) {
+                fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+              }
+            '
+          fi
 
-    - name: 📢 Pull Requests
-      if: always() && github.event_name == 'pull_request'
-      uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708
-      with:
-        webhook: ${{ secrets.DISCORD_WEBHOOK_PRS }}
-        status: ${{ job.status }}
-        title: "Status do PR: Frontend"
-        description: "PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }} no Frontend"
+      - name: Rodar Testes de Integração
+        run: npm run test:integration
 
-    - name: 📢 Atualizações do Repositório
-      if: always() && github.event_name == 'push'
-      uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708
-      with:
-        webhook: ${{ secrets.DISCORD_WEBHOOK_FEED }}
-        status: ${{ job.status }}
-        title: "Atualização no Repositório: Frontend"
-        description: "A branch ${{ github.ref_name }} recebeu um novo push e a validação do Frontend finalizou com status: ${{ job.status }}."
+      - name: Fazer o Build
+        run: npm run build
+
+      - name: Relatório de tamanho do bundle
+        run: npm run check:bundle
+
+      - name: 📢 Pull Requests
+        if: always() && github.event_name == 'pull_request'
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_PRS }}
+          status: ${{ job.status }}
+          title: "Status do PR: Frontend"
+          description: "PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }} no Frontend"
+
+      - name: 📢 Atualizações do Repositório
+        if: always() && github.event_name == 'push'
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_FEED }}
+          status: ${{ job.status }}
+          title: "Atualização no Repositório: Frontend"
+          description: "A branch ${{ github.ref_name }} recebeu um novo push e a validação do Frontend finalizou com status: ${{ job.status }}."
