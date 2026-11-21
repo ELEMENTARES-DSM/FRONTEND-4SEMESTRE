@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import api from '../../api/instance'
 import {
   getIqar,
+  getIqarEstacao,
   getSeriesEstacao,
   getUltimasLeituras,
 } from './analise.service'
@@ -129,6 +130,48 @@ describe('Serviço de análise de dados', () => {
 
       expect(resultado).toEqual(resposta)
       expect(resultado.cor).toBeUndefined()
+    })
+
+    it('deve enviar estacaoId como parâmetro de query quando informado', async () => {
+      const resposta = {
+        estacaoId: 'EST-001',
+        indice: 15,
+        status: 'Boa',
+        cor: '#00E400',
+        rotuloFaixa: 'Boa',
+        mensagem: 'Qualidade do ar considerada boa.',
+      }
+
+      vi.mocked(api.get).mockResolvedValue({
+        data: resposta,
+      } as never)
+
+      const resultado = await getIqar('EST-001')
+
+      expect(api.get).toHaveBeenCalledWith('/analise/iqar', {
+        params: { estacaoId: 'EST-001' },
+      })
+      expect(resultado).toEqual(resposta)
+    })
+
+    it('deve buscar o IQAr diretamente pela rota da estação com getIqarEstacao', async () => {
+      const resposta = {
+        estacaoId: 'EST-001',
+        indice: 15,
+        status: 'Boa',
+        cor: '#00E400',
+        rotuloFaixa: 'Boa',
+        mensagem: 'Qualidade do ar considerada boa.',
+      }
+
+      vi.mocked(api.get).mockResolvedValue({
+        data: resposta,
+      } as never)
+
+      const resultado = await getIqarEstacao('EST-001')
+
+      expect(api.get).toHaveBeenCalledWith('/analise/estacoes/EST-001/iqar')
+      expect(resultado).toEqual(resposta)
     })
   })
 })

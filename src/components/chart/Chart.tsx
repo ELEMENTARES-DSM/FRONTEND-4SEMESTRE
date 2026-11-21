@@ -27,6 +27,7 @@ interface ChartProps {
     series: ChartSeries[]
     unidade: string
     titulo?: string
+    ocultarTituloVisual?: boolean
     rotuloEixoX?: string
     rotuloEixoY?: string
     altura?: number
@@ -91,6 +92,7 @@ export default function Chart({
     series,
     unidade,
     titulo,
+    ocultarTituloVisual = false,
     rotuloEixoX = 'Data e horário',
     rotuloEixoY = 'Valor',
     altura = 320,
@@ -139,7 +141,7 @@ export default function Chart({
             className="w-full"
             aria-label={titulo ?? 'Gráfico de séries temporais'}
         >
-            {titulo && (
+            {titulo && !ocultarTituloVisual && (
                 <h3 className="mb-3 text-sm font-semibold text-slate-200">
                     {titulo}
                 </h3>
@@ -229,6 +231,7 @@ export default function Chart({
                                 }
                                 strokeWidth={2}
                                 dot={false}
+                                isAnimationActive={false}
                                 activeDot={{
                                     r: 5,
                                     stroke: '#101C2C',

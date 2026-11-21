@@ -6,6 +6,7 @@ export type PeriodoAnalise = '24h' | '7d' | '30d'
 export interface PontoSerie {
   timestamp: string
   valor: number
+  valida?: boolean
 }
 
 export interface SeriesResponse {
@@ -28,10 +29,14 @@ export interface UltimasLeiturasResponse {
 }
 
 export interface IqarResponse {
+  estacaoId?: string
+  indice?: number | string
+  classificacao?: string
   status: string
   cor?: string
   rotuloFaixa: string
   mensagem: string
+  municipio?: string
 }
 
 export async function getSeriesEstacao(
@@ -62,8 +67,24 @@ export async function getUltimasLeituras(
   return response.data
 }
 
-export async function getIqar(): Promise<IqarResponse> {
+export async function getIqar(estacaoId?: string): Promise<IqarResponse> {
+  if (estacaoId) {
+    const response = await api.get<IqarResponse>('/analise/iqar', {
+      params: { estacaoId },
+    })
+    return response.data
+  }
+
   const response = await api.get<IqarResponse>('/analise/iqar')
 
   return response.data
 }
+
+export async function getIqarEstacao(estacaoId: string): Promise<IqarResponse> {
+  const response = await api.get<IqarResponse>(
+    `/analise/estacoes/${estacaoId}/iqar`,
+  )
+
+  return response.data
+}
+
