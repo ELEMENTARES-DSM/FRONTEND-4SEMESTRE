@@ -472,6 +472,22 @@ export function Stations({ initialStations }: StationsProps = {}) {
           </span>
         ),
       },
+      {
+        key: "sensores",
+        header: "Sensores",
+        align: "center",
+        sortable: false,
+        width: "110px",
+        render: (item) => (
+          <button
+            type="button"
+            onClick={() => navigate(`/platform/estacoes/${item.id}`)}
+            className="rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition hover:bg-primary/20"
+          >
+            Sensores
+          </button>
+        ),
+      },
     ];
 
     if (canToggleStation) {
@@ -507,7 +523,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
     }
 
     return baseColumns;
-  }, [togglingId, handleToggleStatus, canToggleStation]);
+  }, [togglingId, handleToggleStatus, canToggleStation, navigate]);
 
   if (!canViewStations) {
     return (
@@ -652,6 +668,12 @@ export function Stations({ initialStations }: StationsProps = {}) {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/platform/estacoes/${selectedStation.id}`)}
+              >
+                Ver Sensores
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => setSelectedStation(null)}

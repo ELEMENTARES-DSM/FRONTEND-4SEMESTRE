@@ -187,6 +187,7 @@ export function StationsTable({
               <th>Status</th>
               <th>Último Sinal</th>
               <th>IQAr atual</th>
+              <th className="text-center">Sensores</th>
               {temAcoes && <th className="text-right">Ações</th>}
             </tr>
           </thead>
@@ -195,7 +196,7 @@ export function StationsTable({
             {estacoesFiltradas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={(isAdmin ? 5 : 4) + (temAcoes ? 1 : 0)}
+                  colSpan={(isAdmin ? 6 : 5) + (temAcoes ? 1 : 0)}
                   className="py-10 text-center text-muted"
                 >
                   Nenhuma estação encontrada.
@@ -311,6 +312,15 @@ export function StationsTable({
                       ) : (
                         <span className="text-xs text-muted">Sem leitura</span>
                       )}
+                    </td>
+
+                    <td className="text-center">
+                      <Link
+                        to={`/platform/estacoes/${estacao.id}`}
+                        className="inline-flex items-center rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-400 transition hover:bg-teal-500/20"
+                      >
+                        Sensores
+                      </Link>
                     </td>
 
                     {temAcoes && (

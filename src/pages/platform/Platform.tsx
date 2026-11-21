@@ -43,7 +43,7 @@ export function Platform() {
         return;
       }
 
-      const data = await getVisaoGeralEstacoes();
+      const data = await getVisaoGeralEstacoes({ incluirMunicipio: isAdmin });
 
       setEstacoes(data.estacoes);
       setResumo(data.resumo);
@@ -66,7 +66,7 @@ export function Platform() {
       setLoading(false);
       firstLoad.current = false;
     }
-  }, []);
+  }, [isAdmin]);
 
   // Carregamento inicial e atualização automática a cada cinco minutos.
   // O setTimeout evita chamar a função que atualiza estados diretamente no efeito.
