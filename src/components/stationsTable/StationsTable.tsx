@@ -6,7 +6,9 @@ import { Input, Select } from "../../shared/components/Field";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import { stationsService } from "../../services/stations/stations.service";
 import { StationForbiddenError } from "../../services/stations/stations.errors";
-import { getIqarBand, IQAR_BANDS } from "../../utils/iqarBands";
+import { IQAR_BANDS } from "../../utils/iqarBands";
+
+const COR_IQAR_NEUTRA = "#64748B";
 
 interface StationsTableProps {
   estacoes: EstacaoStatus[];
@@ -204,10 +206,7 @@ export function StationsTable({
               </tr>
             ) : (
               estacoesFiltradas.map((estacao) => {
-                const faixaIqar =
-                  typeof estacao.iqar === "number"
-                    ? getIqarBand(estacao.iqar)
-                    : null;
+                const corIqar = estacao.iqar_cor || COR_IQAR_NEUTRA;
 
                 return (
                   <tr key={estacao.id} className="hover:bg-white/[0.02]">
@@ -283,31 +282,37 @@ export function StationsTable({
                     </td>
 
                     <td>
-                      {faixaIqar && typeof estacao.iqar === "number" ? (
+                      {typeof estacao.iqar === "number" ? (
                         <div className="inline-flex items-center gap-2">
                           <span
                             className="font-mono text-sm font-semibold"
-                            style={{ color: faixaIqar.color }}
+                            style={{ color: corIqar }}
                           >
                             {estacao.iqar}
                           </span>
 
-                          <span
-                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
-                            style={{
-                              color: faixaIqar.color,
-                              backgroundColor: faixaIqar.bg,
-                              border: `1px solid ${faixaIqar.color}44`,
-                            }}
-                          >
+                          {estacao.iqar_classificacao && (
                             <span
-                              className="size-1.5 rounded-full"
-                              style={{ backgroundColor: faixaIqar.color }}
-                            />
+                              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                              style={{
+                                color: corIqar,
+                                backgroundColor: `${corIqar}1F`,
+                                border: `1px solid ${corIqar}44`,
+                              }}
+                            >
+                              <span
+                                className="size-1.5 rounded-full"
+                                style={{ backgroundColor: corIqar }}
+                              />
 
-                            {faixaIqar.label}
-                          </span>
+                              {estacao.iqar_classificacao}
+                            </span>
+                          )}
                         </div>
+                      ) : estacao.iqar_sem_dados ? (
+                        <span className="text-xs text-muted">
+                          Sem dados suficientes
+                        </span>
                       ) : (
                         <span className="text-xs text-muted">Sem leitura</span>
                       )}

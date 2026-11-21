@@ -43,7 +43,10 @@ export function Platform() {
         return;
       }
 
-      const data = await getVisaoGeralEstacoes({ incluirMunicipio: isAdmin });
+      const data = await getVisaoGeralEstacoes({
+        incluirMunicipio: isAdmin,
+        incluirIqar: true,
+      });
 
       setEstacoes(data.estacoes);
       setResumo(data.resumo);

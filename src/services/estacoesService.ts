@@ -1,4 +1,7 @@
 import api from "../api/instance";
+import { getIqar, type IqarResponse } from "./analise/analise.service";
+
+const SEM_DADOS_SUFICIENTES = "sem dados suficientes";
 
 export interface EstacaoStatus {
   id: string;
@@ -9,6 +12,9 @@ export interface EstacaoStatus {
   ultimo_ping: string | null;
   minutos_sem_sinal: number | null;
   iqar?: number | null;
+  iqar_classificacao?: string | null;
+  iqar_cor?: string | null;
+  iqar_sem_dados?: boolean;
 }
 
 export interface ResumoEstacoes {
@@ -37,6 +43,38 @@ interface EstacaoMunicipioResponse {
 
 export interface VisaoGeralOptions {
   incluirMunicipio?: boolean;
+  incluirIqar?: boolean;
+}
+
+type CamposIqar = Pick<
+  EstacaoStatus,
+  "iqar" | "iqar_classificacao" | "iqar_cor" | "iqar_sem_dados"
+>;
+
+function semDadosSuficientes(valor?: string | number): boolean {
+  return typeof valor === "string" && valor.trim().toLowerCase() === SEM_DADOS_SUFICIENTES;
+}
+
+function converterIqar(resposta: IqarResponse): CamposIqar {
+  const semDados =
+    semDadosSuficientes(resposta.indice) ||
+    semDadosSuficientes(resposta.status) ||
+    semDadosSuficientes(resposta.rotuloFaixa);
+
+  if (semDados) {
+    return { iqar: null, iqar_sem_dados: true };
+  }
+
+  if (typeof resposta.indice !== "number" || !Number.isFinite(resposta.indice)) {
+    return {};
+  }
+
+  return {
+    iqar: resposta.indice,
+    iqar_classificacao:
+      resposta.rotuloFaixa?.trim() || resposta.classificacao?.trim() || null,
+    iqar_cor: resposta.cor ?? null,
+  };
 }
 
 export async function getVisaoGeralEstacoes(
@@ -87,6 +125,23 @@ export async function getVisaoGeralEstacoes(
     } catch {
       // Fallback opcional: mantém a Visão Geral funcionando mesmo se /estacoes falhar.
     }
+  }
+
+  if (options?.incluirIqar) {
+    const resultados = await Promise.allSettled(
+      estacoes.map((estacao) =>
+        estacao.status_operacional === "Inativa"
+          ? Promise.resolve<CamposIqar>({})
+          : getIqar(estacao.id).then(converterIqar),
+      ),
+    );
+
+    estacoes = estacoes.map((estacao, indice) => {
+      const resultado = resultados[indice];
+      return resultado.status === "fulfilled"
+        ? { ...estacao, ...resultado.value }
+        : estacao;
+    });
   }
 
   return {

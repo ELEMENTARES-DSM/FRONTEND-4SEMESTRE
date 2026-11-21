@@ -10,44 +10,36 @@ export const IQAR_BANDS: IqarBandInfo[] = [
   {
     key: "boa",
     label: "Boa",
-    range: "0–40",
+    range: "0–15",
     color: "#22C55E",
     bg: "#22C55E1F",
   },
   {
     key: "moderada",
     label: "Moderada",
-    range: "41–80",
-    color: "#FACC15",
-    bg: "#FACC151F",
+    range: "16–50",
+    color: "#EAB308",
+    bg: "#EAB3081F",
   },
   {
     key: "ruim",
     label: "Ruim",
-    range: "81–120",
-    color: "#FB923C",
-    bg: "#FB923C1F",
+    range: "51–75",
+    color: "#F97316",
+    bg: "#F973161F",
   },
   {
     key: "muito_ruim",
     label: "Muito Ruim",
-    range: "121–199",
+    range: "76–125",
     color: "#EF4444",
     bg: "#EF44441F",
   },
   {
     key: "pessima",
     label: "Péssima",
-    range: "200+",
+    range: "126+",
     color: "#A855F7",
     bg: "#A855F71F",
   },
 ];
-
-export function getIqarBand(iqar: number): IqarBandInfo {
-  if (iqar <= 40) return IQAR_BANDS[0];
-  if (iqar <= 80) return IQAR_BANDS[1];
-  if (iqar <= 120) return IQAR_BANDS[2];
-  if (iqar < 200) return IQAR_BANDS[3];
-  return IQAR_BANDS[4];
-}
