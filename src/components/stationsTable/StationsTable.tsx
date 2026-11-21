@@ -83,13 +83,14 @@ export function StationsTable({ estacoes }: StationsTableProps) {
               <th>Último Ping Recebido</th>
               <th>Tempo Decorrido</th>
               <th>Status Operacional</th>
+              <th>Ações</th>
             </tr>
           </thead>
 
           <tbody>
             {estacoesFiltradas.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-10 text-center text-muted">
+                <td colSpan={6} className="py-10 text-center text-muted">
                   Nenhuma estação encontrada.
                 </td>
               </tr>
@@ -98,7 +99,14 @@ export function StationsTable({ estacoes }: StationsTableProps) {
                 <tr key={estacao.id}>
                   <td className="font-mono text-sm">{estacao.codigo}</td>
 
-                  <td><Link className="link link-primary" to={`/platform/estacoes/${estacao.id}`}>{estacao.nome}</Link></td>
+                  <td>
+                    <Link
+                      className="link link-primary font-medium"
+                      to={`/platform/dashboard/${estacao.id}`}
+                    >
+                      {estacao.nome}
+                    </Link>
+                  </td>
 
                   <td>{formatUltimoPing(estacao.ultimo_ping)}</td>
 
@@ -122,6 +130,15 @@ export function StationsTable({ estacoes }: StationsTableProps) {
                       />
                       {estacao.status_operacional}
                     </span>
+                  </td>
+
+                  <td>
+                    <Link
+                      className="link text-xs text-muted hover:text-primary"
+                      to={`/platform/estacoes/${estacao.id}`}
+                    >
+                      Sensores
+                    </Link>
                   </td>
                 </tr>
               ))

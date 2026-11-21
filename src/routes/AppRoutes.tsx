@@ -11,6 +11,7 @@ import { AppLayout } from "../AppLayout";
 import { Usuarios } from "../pages/Usuarios/Usuarios";
 import { Alarmes } from "../pages/Alarmes/Alarmes";
 import { Grandezas } from "../pages/Grandezas/Grandezas";
+import { DashboardEstacao } from "../pages/DashboardEstacao/DashboardEstacao";
 
 export function AppRoutes() {
   return (
@@ -19,6 +20,8 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/platform" replace />} />
           <Route path="/platform" element={<Platform />} />
+          <Route path="/platform/dashboard" element={<DashboardEstacao />} />
+          <Route path="/platform/dashboard/:id" element={<DashboardEstacao />} />
           <Route path="/platform/usuarios" element={
             <ProtectedRoute allowedRoles={['ADMINISTRADOR']}>
               <Usuarios />
