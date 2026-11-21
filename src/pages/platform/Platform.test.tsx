@@ -47,6 +47,9 @@ describe('Visão Geral por perfil', () => {
     expect(screen.getByRole('heading', { name: 'Visão Geral' })).toBeInTheDocument()
     expect(await screen.findByText('Estação Centro')).toBeInTheDocument()
     expect(screen.getByText('Estação Norte')).toBeInTheDocument()
+    const linksSensores = screen.getAllByRole('link', { name: 'Sensores' })
+    expect(linksSensores[0]).toHaveAttribute('href', '/platform/estacoes/e1')
+    expect(linksSensores[1]).toHaveAttribute('href', '/platform/estacoes/e2')
     expect(get).toHaveBeenCalledWith('/estacoes/status')
     expect(screen.queryByRole('button', { name: 'Nova Estação' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -74,5 +77,28 @@ describe('Visão Geral por perfil', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(await screen.findByText('Estação Centro')).toBeInTheDocument()
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+  })
+
+  it('para ADMINISTRADOR, busca o município em /estacoes quando /estacoes/status não retorna o campo', async () => {
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
+      if (url === '/estacoes/status') return { data: STATUS }
+      if (url === '/estacoes') {
+        return {
+          data: [
+            { id: 'e1', municipio: 'São José dos Campos' },
+            { id: 'e2', municipio: 'Taubaté' },
+          ],
+        }
+      }
+      return { data: [] }
+    })
+
+    renderPlatform('ADMINISTRADOR')
+
+    expect(await screen.findByText('Estação Centro')).toBeInTheDocument()
+    expect(screen.getAllByText('São José dos Campos').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Taubaté').length).toBeGreaterThan(0)
+    expect(get).toHaveBeenCalledWith('/estacoes/status')
+    expect(get).toHaveBeenCalledWith('/estacoes')
   })
 })

@@ -30,11 +30,22 @@ export interface VisaoGeralData {
   estacoes: EstacaoStatus[];
 }
 
-export async function getVisaoGeralEstacoes(): Promise<VisaoGeralData> {
+interface EstacaoMunicipioResponse {
+  id: string;
+  municipio?: string | null;
+}
+
+export interface VisaoGeralOptions {
+  incluirMunicipio?: boolean;
+}
+
+export async function getVisaoGeralEstacoes(
+  options?: VisaoGeralOptions,
+): Promise<VisaoGeralData> {
   const response = await api.get<StatusEstacoesResponse>("/estacoes/status");
   const agora = Date.now();
 
-  const estacoes = response.data.estacoes.map((estacao) => {
+  let estacoes = response.data.estacoes.map((estacao) => {
     const ultimoPing = estacao.ultimo_ping ? Date.parse(estacao.ultimo_ping) : NaN;
     return {
       ...estacao,
@@ -44,6 +55,39 @@ export async function getVisaoGeralEstacoes(): Promise<VisaoGeralData> {
         : null,
     };
   });
+
+  const precisaMunicipio =
+    options?.incluirMunicipio &&
+    estacoes.some((estacao) => !estacao.municipio?.trim());
+
+  if (precisaMunicipio) {
+    try {
+      const estacoesResponse =
+        await api.get<EstacaoMunicipioResponse[]>("/estacoes");
+
+      if (Array.isArray(estacoesResponse.data)) {
+        const municipiosPorId = new Map<string, string>();
+        for (const item of estacoesResponse.data) {
+          const municipio = item.municipio?.trim();
+          if (item.id && municipio) {
+            municipiosPorId.set(item.id, municipio);
+          }
+        }
+
+        if (municipiosPorId.size > 0) {
+          estacoes = estacoes.map((estacao) => ({
+            ...estacao,
+            municipio:
+              estacao.municipio?.trim() ||
+              municipiosPorId.get(estacao.id) ||
+              estacao.municipio,
+          }));
+        }
+      }
+    } catch {
+      // Fallback opcional: mantém a Visão Geral funcionando mesmo se /estacoes falhar.
+    }
+  }
 
   return {
     resumo: response.data.resumo,
