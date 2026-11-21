@@ -139,7 +139,7 @@ describe('DashboardEstacao integração (US-35)', () => {
 
     autenticarEabrir('/platform')
 
-    const linkEstacao = await screen.findByRole('link', { name: 'Estação Centro' })
+    const linkEstacao = await screen.findByRole('link', { name: /Estação Centro/i })
     fireEvent.click(linkEstacao)
 
     await waitFor(() =>
@@ -304,9 +304,7 @@ describe('DashboardEstacao integração (US-35)', () => {
     fireEvent.change(screen.getByLabelText('Grandeza'), {
       target: { value: 'Temperatura' },
     })
-    fireEvent.change(screen.getByLabelText('Período'), {
-      target: { value: '30d' },
-    })
+    fireEvent.click(screen.getByRole('button', { name: '30 dias' }))
 
     await waitFor(() =>
       expect(getSpy).toHaveBeenCalledWith(

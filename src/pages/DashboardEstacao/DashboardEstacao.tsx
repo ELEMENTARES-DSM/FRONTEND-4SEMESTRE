@@ -8,7 +8,6 @@ import {
   getUltimasLeituras,
   type IqarResponse,
   type LeituraRecente,
-  type PeriodoAnalise,
   type PontoSerie,
 } from '../../services/analise/analise.service'
 import { getEstacoesStatus, type EstacaoStatus } from '../../services/estacoesService'
@@ -380,14 +379,17 @@ export function DashboardEstacao() {
   const iqarVisual = useMemo(() => resolverExibicaoIqar(iqar), [iqar])
 
   const statusOnlineTexto = useMemo(() => {
-    if (!estacaoDetalhes) return 'Estação online'
+    if (!estacaoDetalhes) return 'Status indisponível'
     if (estacaoDetalhes.status_operacional === 'Ativa') return 'Estação online'
     if (estacaoDetalhes.status_operacional === 'Com Falha') return 'Estação com falha'
     return 'Estação inativa'
   }, [estacaoDetalhes])
 
   const statusDotColor = useMemo(() => {
-    if (!estacaoDetalhes || estacaoDetalhes.status_operacional === 'Ativa') {
+    if (!estacaoDetalhes) {
+      return 'bg-slate-500'
+    }
+    if (estacaoDetalhes.status_operacional === 'Ativa') {
       return 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
     }
     if (estacaoDetalhes.status_operacional === 'Com Falha') {
@@ -406,7 +408,7 @@ export function DashboardEstacao() {
     ) {
       return `há ${estacaoDetalhes.minutos_sem_sinal} min`
     }
-    return 'há 2 min'
+    return null
   }, [leituras, estacaoDetalhes])
 
   function alterarEstacao(novoId: string) {
@@ -433,8 +435,6 @@ export function DashboardEstacao() {
         <div>
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
             <span className="text-[#00A6E6]">MONITORAMENTO AMBIENTAL</span>
-            <span className="text-slate-600">•</span>
-            <span className="text-slate-400">US-35</span>
             {rotuloEstacaoSubtitulo && (
               <>
                 <span className="text-slate-600">•</span>
@@ -464,7 +464,11 @@ export function DashboardEstacao() {
             <span className={`size-2 rounded-full ${statusDotColor}`} />
             {statusOnlineTexto}
           </span>
-          <span>Atualizado {ultimoTempoRelativo}</span>
+          <span>
+            {ultimoTempoRelativo
+              ? `Atualizado ${ultimoTempoRelativo}`
+              : 'Sem registro recente'}
+          </span>
         </div>
       </header>
 
@@ -523,35 +527,18 @@ export function DashboardEstacao() {
           </select>
         </div>
 
-        {/* PERÍODO: Botões segmentados conforme o Figma + select acessível sincronizado */}
+        {/* PERÍODO: Botões segmentados acessíveis */}
         <div className="md:col-span-3">
-          <label
-            htmlFor="filtro-periodo-dashboard"
+          <span
+            id="filtro-periodo-label"
             className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400"
           >
             Período
-          </label>
-
-          {/* Select acessível para leitores de tela e testes automatizados */}
-          <select
-            id="filtro-periodo-dashboard"
-            aria-label="Período"
-            value={periodoSelecionado}
-            onChange={(event) =>
-              alterarFiltroUrl('periodo', event.target.value as PeriodoAnalise)
-            }
-            className="sr-only"
-          >
-            {PERIODOS_DASHBOARD.map((opcao) => (
-              <option key={opcao.value} value={opcao.value}>
-                {opcao.label}
-              </option>
-            ))}
-          </select>
+          </span>
 
           <div
             role="group"
-            aria-label="Seletor de período"
+            aria-labelledby="filtro-periodo-label"
             className="grid h-10 grid-cols-3 items-center gap-1 rounded-lg border border-[#1E3A5F] bg-[#081223] p-1"
           >
             {PERIODOS_DASHBOARD.map((opcao) => {
@@ -708,9 +695,9 @@ export function DashboardEstacao() {
                 </div>
                 <div className="mt-2 flex items-center justify-between font-mono text-[10px] text-slate-400">
                   <span>0</span>
-                  <span>50</span>
-                  <span>100</span>
-                  <span>150</span>
+                  <span>40</span>
+                  <span>80</span>
+                  <span>120</span>
                   <span>200+</span>
                 </div>
               </div>
@@ -835,7 +822,11 @@ export function DashboardEstacao() {
 
             {/* Rodapé do gráfico conforme o Figma */}
             <div className="mt-4 flex flex-col justify-between gap-2 border-t border-[#1E293B] pt-3 text-[11px] text-slate-500 sm:flex-row sm:items-center">
-              <span>Última sincronização {ultimoTempoRelativo}</span>
+              <span>
+                {ultimoTempoRelativo
+                  ? `Última sincronização ${ultimoTempoRelativo}`
+                  : 'Última sincronização indisponível'}
+              </span>
               <span>
                 Fonte: sensor calibrado · resolução {infoPeriodo.resolucaoRodape}
               </span>

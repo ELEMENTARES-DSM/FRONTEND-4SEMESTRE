@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { Stations, type Station } from './Stations'
 import api from '../api/instance'
 import { AuthContext } from '../auth/AuthContext'
@@ -13,16 +14,18 @@ function renderAs(
   municipio: string | null = papel === 'GESTOR_PUBLICO' ? 'São José dos Campos' : null,
 ) {
   return render(
-    <AuthContext.Provider
-      value={{
-        token: 'token-teste',
-        usuario: { id: `user-${papel}`, nome: `Usuário ${papel}`, papel, municipio },
-        login: vi.fn(),
-        logout: vi.fn(),
-      }}
-    >
-      {ui}
-    </AuthContext.Provider>,
+    <MemoryRouter>
+      <AuthContext.Provider
+        value={{
+          token: 'token-teste',
+          usuario: { id: `user-${papel}`, nome: `Usuário ${papel}`, papel, municipio },
+          login: vi.fn(),
+          logout: vi.fn(),
+        }}
+      >
+        {ui}
+      </AuthContext.Provider>
+    </MemoryRouter>,
   )
 }
 
@@ -39,7 +42,7 @@ function preencherCadastro({
   longitude?: string
   municipio?: string
 }) {
-  fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+  fireEvent.click(screen.getByRole('button', { name: /Nova Estação/i }))
   fireEvent.change(screen.getByLabelText(/Código da Estação/i), { target: { value: codigo } })
   fireEvent.change(screen.getByLabelText(/Nome da Localidade/i), { target: { value: nome } })
   if (municipio !== undefined) {
@@ -133,7 +136,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
     })
 
     expect(
-      await screen.findByText('Estação meteorológica cadastrada com sucesso'),
+      await screen.findByText('Estação meteorológica cadastrada com sucesso.'),
     ).toBeInTheDocument()
 
     // O status "Ativa" vem do back, não do formulário
@@ -156,7 +159,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
       expect(postSpy).toHaveBeenCalled()
     })
     expect(
-      await screen.findByText('Identificador de estação já cadastrado no sistema'),
+      await screen.findByText('Identificador de estação já cadastrado no sistema.'),
     ).toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
@@ -170,7 +173,7 @@ describe('Componente Stations - Casos de Uso BDD / Gherkin', () => {
 
     expect(postSpy).not.toHaveBeenCalled()
     expect(
-      screen.getByText('Coordenadas geográficas fora dos limites válidos'),
+      screen.getByText('Coordenadas geográficas fora dos limites válidos.'),
     ).toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
@@ -212,7 +215,7 @@ describe('Validação de coordenadas no cliente (RN-03)', () => {
 
     expect(postSpy).not.toHaveBeenCalled()
     expect(
-      screen.getByText('Coordenadas geográficas fora dos limites válidos'),
+      screen.getByText('Coordenadas geográficas fora dos limites válidos.'),
     ).toBeInTheDocument()
   })
 
@@ -347,7 +350,7 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
   it('valida campos obrigatórios não preenchidos no formulário', () => {
     renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Nova Estação/i }))
     fireEvent.submit(screen.getByRole('button', { name: /Salvar Estação/i }).closest('form')!)
 
     expect(
@@ -358,7 +361,7 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
   it('fecha o modal de cadastro ao clicar em Cancelar', () => {
     renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Nova Estação/i }))
     expect(screen.getByRole('heading', { name: 'Nova Estação' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Cancelar/i }))
@@ -374,7 +377,7 @@ describe('Componente Stations - Funcionalidades adicionais', () => {
     salvar()
 
     expect(
-      await screen.findByText('Estação meteorológica cadastrada com sucesso'),
+      await screen.findByText('Estação meteorológica cadastrada com sucesso.'),
     ).toBeInTheDocument()
     expect(postSpy).not.toHaveBeenCalled()
     expect(screen.getByText('EST-MOCK-TEST')).toBeInTheDocument()
@@ -406,7 +409,7 @@ describe('Controle de Acesso e Autorização - Componente Stations', () => {
     renderAs('ADMINISTRADOR', <Stations initialStations={MOCK_STATIONS} />)
 
     expect(screen.getByRole('heading', { name: /Inventário de Estações/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /\+ Nova Estação/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Nova Estação/i })).toBeInTheDocument()
     expect(screen.getByText('EST-SJC-001')).toBeInTheDocument()
     expect(
       screen.getByRole('switch', { name: /Alternar status da estação EST-SJC-001/i }),
@@ -422,7 +425,7 @@ describe('Controle de Acesso e Autorização - Componente Stations', () => {
       screen.getByText('Você não possui permissão para visualizar o inventário de estações.'),
     ).toBeInTheDocument()
     expect(screen.queryByText('EST-SJC-001')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /\+ Nova Estação/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Nova Estação/i })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('switch', { name: /Alternar status da estação EST-SJC-001/i }),
     ).not.toBeInTheDocument()
@@ -440,7 +443,11 @@ describe('Controle de Acesso e Autorização - Componente Stations', () => {
   it('não trata como autorizado um papel gravado solto no localStorage', () => {
     localStorage.setItem('userRole', 'ADMINISTRADOR')
 
-    render(<Stations initialStations={MOCK_STATIONS} />)
+    render(
+      <MemoryRouter>
+        <Stations initialStations={MOCK_STATIONS} />
+      </MemoryRouter>,
+    )
 
     expect(screen.getByRole('alert', { name: /Acesso negado/i })).toBeInTheDocument()
   })
@@ -501,14 +508,14 @@ describe('US-03 - Município da estação', () => {
     expect(corpo).not.toHaveProperty('municipio')
     expect(corpo).not.toHaveProperty('status')
     expect(
-      await screen.findByText('Estação meteorológica cadastrada com sucesso'),
+      await screen.findByText('Estação meteorológica cadastrada com sucesso.'),
     ).toBeInTheDocument()
   })
 
   it('não disponibiliza campo de município para GESTOR_PUBLICO', () => {
     renderAs('GESTOR_PUBLICO', <Stations initialStations={[]} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Nova Estação/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Nova Estação/i }))
 
     expect(screen.queryByLabelText(/município/i)).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/município/i)).not.toBeInTheDocument()
@@ -549,7 +556,7 @@ describe('US-03 - Município da estação', () => {
       })
     })
     expect(
-      await screen.findByText('Estação meteorológica cadastrada com sucesso'),
+      await screen.findByText('Estação meteorológica cadastrada com sucesso.'),
     ).toBeInTheDocument()
   })
 

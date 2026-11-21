@@ -159,9 +159,7 @@ describe('DashboardEstacao (US-35)', () => {
     renderDashboard('/platform/dashboard/EST-001')
     await screen.findByRole('heading', { name: /Dashboard da Estação/i })
 
-    fireEvent.change(screen.getByLabelText('Período'), {
-      target: { value: '7d' },
-    })
+    fireEvent.click(screen.getByRole('button', { name: '7 dias' }))
 
     await waitFor(() =>
       expect(mockGetSeries).toHaveBeenLastCalledWith('EST-001', 'PM2.5', '7d'),
@@ -260,6 +258,30 @@ describe('DashboardEstacao (US-35)', () => {
       { timestamp: '2026-11-20T12:00:00.000Z', valor: 55.2, valida: true },
       { timestamp: '2026-11-20T12:10:00.000Z', valor: 58.0 },
     ])
+  })
+
+  it('não deve exibir status online nem horário fictício quando não há metadados nem leituras da estação', async () => {
+    mockGetEstacoesStatus.mockResolvedValueOnce([])
+    mockGetUltimasLeituras.mockResolvedValueOnce({
+      estacaoId: 'EST-999',
+      leituras: [],
+    })
+    mockGetSeries.mockResolvedValueOnce({
+      estacaoId: 'EST-999',
+      grandeza: 'PM2.5',
+      periodo: '24h',
+      dados: [],
+    })
+
+    renderDashboard('/platform/dashboard/EST-999')
+
+    expect(
+      await screen.findByText('Nenhuma medida no período selecionado.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Status indisponível')).toBeInTheDocument()
+    expect(screen.getByText('Sem registro recente')).toBeInTheDocument()
+    expect(screen.queryByText('Estação online')).not.toBeInTheDocument()
+    expect(screen.queryByText(/há 2 min/i)).not.toBeInTheDocument()
   })
 
   it('deve resolver a unidade de medida a partir das últimas leituras, do catálogo ou do padrão', () => {
