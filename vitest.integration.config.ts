@@ -5,7 +5,7 @@ export default defineConfig({
   ...baseConfig,
   test: {
     ...baseConfig.test,
-    include: ["**/*.integration.{test,spec}.{ts,tsx}"],
+    include: ["**/*.integration.test.{ts,tsx}"],
     exclude: ["**/node_modules/**", "**/dist/**"],
   },
 });

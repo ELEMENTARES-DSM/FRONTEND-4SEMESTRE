@@ -35,7 +35,7 @@ jobs:
           npm run validate:env
 
       - name: Verificar tipagem TypeScript
-        run: npx tsc --noEmit
+        run: npx tsc -p tsconfig.app.json --noEmit && npx tsc -p tsconfig.node.json --noEmit
 
       - name: Rodar Linter
         run: npm run lint
