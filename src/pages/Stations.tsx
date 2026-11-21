@@ -16,6 +16,7 @@ import {
   StationConflictError,
   StationForbiddenError,
 } from '../services/stations/stations.errors'
+import { normalizarMac } from '../services/stations/mac'
 import type {
   Station,
   StationStatus,
@@ -141,6 +142,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
 
   const [formCodigo, setFormCodigo] = useState('')
+  const [formMac, setFormMac] = useState('')
   const [formNome, setFormNome] = useState('')
   const [formMunicipio, setFormMunicipio] = useState('')
   const [formLat, setFormLat] = useState('')
@@ -260,8 +262,15 @@ export function Stations({ initialStations }: StationsProps = {}) {
       return
     }
 
-    if (!formCodigo.trim() || !formNome.trim()) {
+    if (!formCodigo.trim() || !formNome.trim() || !formMac.trim()) {
       notify('Por favor, preencha todos os campos obrigatórios.', 'error')
+      return
+    }
+
+    // O MAC é a identidade física da placa: o tópico MQTT é pulso/estacoes/<mac>/telemetria.
+    const mac = normalizarMac(formMac)
+    if (!mac) {
+      notify('MAC inválido: informe 12 caracteres hexadecimais, como AA:BB:CC:DD:EE:FF.', 'error')
       return
     }
 
@@ -298,6 +307,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
       const normalizedCodigo = formCodigo.trim().toUpperCase()
 
       await createStation({
+        mac_address: mac,
         codigo: normalizedCodigo,
         nome: formNome.trim(),
         latitude,
@@ -308,6 +318,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
       notify('Estação meteorológica cadastrada com sucesso', 'success')
 
       setFormCodigo('')
+      setFormMac('')
       setFormNome('')
       setFormMunicipio('')
       setFormLat('')
@@ -315,7 +326,7 @@ export function Stations({ initialStations }: StationsProps = {}) {
       setIsNewStationModalOpen(false)
     } catch (error: unknown) {
       if (error instanceof StationConflictError) {
-        notify('Identificador de estação já cadastrado no sistema', 'error')
+        notify(error.message, 'error')
       } else if (error instanceof StationForbiddenError) {
         notify(error.message, 'error')
       } else {
@@ -567,6 +578,14 @@ export function Stations({ initialStations }: StationsProps = {}) {
               placeholder="Ex: EST-SJC-003"
               value={formCodigo}
               onChange={(e) => setFormCodigo(e.target.value)}
+              required
+            />
+
+            <Input
+              label="MAC da placa *"
+              placeholder="Ex: AA:BB:CC:DD:EE:FF"
+              value={formMac}
+              onChange={(e) => setFormMac(e.target.value)}
               required
             />
 

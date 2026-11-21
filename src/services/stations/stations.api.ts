@@ -17,6 +17,14 @@ function extractForbiddenMessage(error: unknown): string {
   return 'Acesso negado. Perfil insuficiente para esta ação.'
 }
 
+function extractConflictMessage(error: unknown): string | null {
+  if (axios.isAxiosError(error) && error.response?.data) {
+    const data = error.response.data as { erro?: string; message?: string }
+    return data.message || data.erro || null
+  }
+  return null
+}
+
 const normalizeStation = (station: ApiStation): Station => {
   const latitude = Number(station.latitude)
   const longitude = Number(station.longitude)
@@ -65,7 +73,8 @@ export const stationsApiService = {
           (error as { status?: number }).status === 409)
 
       if (isConflict) {
-        throw new StationConflictError()
+        // O back diz se o conflito é de código ou de MAC.
+        throw new StationConflictError(extractConflictMessage(error) ?? undefined)
       }
 
       throw error
