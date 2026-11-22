@@ -34,6 +34,10 @@ out/
 # Testes e cobertura
 coverage/
 .nyc_output/
+qa/node_modules/
+qa/playwright-report/
+qa/test-results/
+qa/.env
 
 # Cache de ferramentas e linters
 .cache/

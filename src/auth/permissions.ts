@@ -1,4 +1,4 @@
-export type Role = 'ADMINISTRADOR' | 'GESTOR_PUBLICO' | 'PESQUISADOR'
+export type Role = 'ADMINISTRADOR' | 'GESTOR_PUBLICO' | 'PESQUISADOR' | 'MUNICIPE'
 
 export type Permission =
   | 'territory.access'
@@ -7,6 +7,8 @@ export type Permission =
   | 'stations.toggle-status'
   | 'alerts.manage'
   | 'alarms.view'
+  | 'grandezas.view'
+  | 'grandezas.manage'
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ADMINISTRADOR: [
@@ -16,6 +18,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'stations.toggle-status',
     'alerts.manage',
     'alarms.view',
+    'grandezas.view',
+    'grandezas.manage',
   ],
   GESTOR_PUBLICO: [
     'territory.access',
@@ -24,8 +28,12 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'stations.toggle-status',
     'alerts.manage',
     'alarms.view',
+    'grandezas.view',
   ],
   PESQUISADOR: [],
+  MUNICIPE: [
+    'stations.view',
+  ],
 }
 
 export function getPermissionsForRole(papel?: string | null): readonly Permission[] {

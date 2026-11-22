@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import axios from 'axios'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/useAuth'
 import { devAuthBypass } from '../../auth/session'
 import { Button } from '../../shared/components/Button'
@@ -184,6 +184,16 @@ export function Login() {
               </Button>
             </form>
           </Card>
+
+          <div className="mt-4 text-center text-xs text-muted">
+            <span>Não tem uma conta? </span>
+            <Link
+              to="/cadastro"
+              className="font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              Cadastre-se como munícipe
+            </Link>
+          </div>
 
           <p className="pu-entry-footnote">
             Acesso reservado a usuários autorizados.

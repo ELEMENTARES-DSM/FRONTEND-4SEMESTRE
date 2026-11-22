@@ -22,6 +22,8 @@ export interface Station {
   criado_em?: string | Date
   criadoEm?: string
   atualizadoEm?: string
+  /** MAC da placa (12 hex minúsculos): identificador do tópico MQTT. */
+  mac_address?: string | null
 }
 
 export interface StationsProps {
@@ -29,6 +31,7 @@ export interface StationsProps {
 }
 
 export interface CreateStationDTO {
+  mac_address: string
   codigo: string
   nome: string
   municipio?: string

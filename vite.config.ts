@@ -13,6 +13,8 @@ export default defineConfig({
       "/usuarios": "http://localhost:80",
       "/estacoes": "http://localhost:80",
       "/alertas": "http://localhost:80",
+      "/analise": "http://localhost:80",
+      "/relatorios": "http://localhost:80",
     },
   },
   test: {
@@ -21,12 +23,39 @@ export default defineConfig({
     isolate: true,
     setupFiles: ["./src/setupTests.ts", "./src/test/setup.ts"],
     pool: "threads",
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/qa/**",
+      "**/*.integration.test.{ts,tsx}",
+    ],
     // Folga para máquina carregada: o primeiro teste de uma tela pesada passou de 5 s com CI e Docker rodando juntos.
     testTimeout: 15_000,
     css: false,
     coverage: {
-      enabled: true,
-      reporter: ["text", "html"],
+      provider: "v8",
+      reporter: ["text", "html", "json-summary"],
+      include: [
+        "src/components/**/*.{ts,tsx}",
+        "src/hooks/**/*.{ts,tsx}",
+        "src/services/**/*.{ts,tsx}",
+        "src/utils/**/*.{ts,tsx}",
+      ],
+      exclude: [
+        "src/mocks/**",
+        "src/main.tsx",
+        "src/setupTests.ts",
+        "src/test/**",
+        "**/*.d.ts",
+        "**/*.test.{ts,tsx}",
+        "**/*.spec.{ts,tsx}",
+      ],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 70,
+        statements: 70,
+      },
     },
   },
 });

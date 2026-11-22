@@ -5,10 +5,13 @@ import { StationDetails } from "../pages/StationDetail/StationDetail";
 import DevLib from "../pages/DevLib";
 import { Alerts } from "../pages/Alerts";
 import { Login } from "../pages/Login/Login";
+import { Cadastro } from "../pages/Cadastro/Cadastro";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../AppLayout";
 import { Usuarios } from "../pages/Usuarios/Usuarios";
 import { Alarmes } from "../pages/Alarmes/Alarmes";
+import { Grandezas } from "../pages/Grandezas/Grandezas";
+import { DashboardEstacao } from "../pages/DashboardEstacao/DashboardEstacao";
 
 export function AppRoutes() {
   return (
@@ -17,11 +20,21 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/platform" replace />} />
           <Route path="/platform" element={<Platform />} />
+          <Route path="/platform/dashboard" element={<DashboardEstacao />} />
+          <Route path="/platform/dashboard/:id" element={<DashboardEstacao />} />
           <Route path="/platform/usuarios" element={
             <ProtectedRoute allowedRoles={['ADMINISTRADOR']}>
               <Usuarios />
             </ProtectedRoute>
           } />
+          <Route
+            path="/platform/grandezas"
+            element={
+              <ProtectedRoute requiredPermission="grandezas.view">
+                <Grandezas />
+              </ProtectedRoute>
+            }
+          />
           <Route
           path="/platform/territory"
           element={
@@ -61,6 +74,7 @@ export function AppRoutes() {
       </Route>
 
       <Route path="/login" element={<Login />} />
+      <Route path="/cadastro" element={<Cadastro />} />
       <Route path="/devlib" element={<DevLib />} />
     </Routes>
   );

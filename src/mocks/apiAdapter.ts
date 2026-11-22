@@ -2,14 +2,24 @@ import { AxiosError } from 'axios';
 import type { AxiosAdapter, AxiosResponse } from 'axios';
 import type { EstacaoStatus } from '../services/estacoesService';
 import type { Alarme, SeveridadeAlarme } from '../types/alarms';
+import type { PeriodoAnalise } from '../services/analise/analise.service';
+import {
+  criarMockSeries,
+  criarMockUltimasLeituras,
+  mockIqar,
+} from './analiseMock';
 
-const unidades = {
-  Temperatura: '°C',
-  'Umidade Relativa': '%',
-  'PM2.5': 'µg/m³',
-  PM10: 'µg/m³',
-  'Velocidade do Vento': 'km/h',
-};
+// Catálogo de grandezas no formato de GET /estacoes/tipos-sensor (carga inicial do backend).
+const catalogo = [
+  { id: '5a000001-0000-4000-8000-000000000001', nome: 'Temperatura', unidade: '°C', faixa_min: '-50.00', faixa_max: '60.00', agregacao: 'media' },
+  { id: '5a000001-0000-4000-8000-000000000002', nome: 'Umidade Relativa', unidade: '%', faixa_min: '0.00', faixa_max: '100.00', agregacao: 'media' },
+  { id: '5a000001-0000-4000-8000-000000000003', nome: 'PM2.5', unidade: 'µg/m³', faixa_min: '0.00', faixa_max: '1000.00', agregacao: 'media' },
+  { id: '5a000001-0000-4000-8000-000000000004', nome: 'PM10', unidade: 'µg/m³', faixa_min: '0.00', faixa_max: '1000.00', agregacao: 'media' },
+  { id: '5a000001-0000-4000-8000-000000000005', nome: 'Velocidade do Vento', unidade: 'km/h', faixa_min: '0.00', faixa_max: '400.00', agregacao: 'media' },
+  { id: '5a000001-0000-4000-8000-000000000006', nome: 'Direção do Vento', unidade: '°', faixa_min: '0.00', faixa_max: '360.00', agregacao: 'media_circular' },
+  { id: '5a000001-0000-4000-8000-000000000007', nome: 'Precipitação', unidade: 'mm', faixa_min: '0.00', faixa_max: '500.00', agregacao: 'soma' },
+  { id: '5a000001-0000-4000-8000-000000000008', nome: 'Pressão Atmosférica', unidade: 'hPa', faixa_min: '600.00', faixa_max: '1100.00', agregacao: 'media' },
+];
 
 const estacoes: EstacaoStatus[] = [
   { id: '11111111-1111-4111-8111-111111111111', codigo: 'EST-001', nome: 'Estação Centro', municipio: 'São José dos Campos', status_operacional: 'Ativa', ultimo_ping: new Date(Date.now() - 60000).toISOString(), minutos_sem_sinal: 1 },
@@ -22,17 +32,18 @@ interface MockSensor {
   nome: string;
   id: string;
   estacao_id: string;
-  tipo: keyof typeof unidades;
+  tipo: string;
   unidade_medida: string;
-  fator: string;
-  ganho: string;
+  unidade_leitura: string | null;
+  fator_conversao: string;
+  offset: string;
   status: 'Ativo' | 'Inativo';
 }
 
 const sensores: MockSensor[] = [
-  { codigo: 'TEMP-01', nome: 'Temperatura do ar', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', estacao_id: estacoes[0].id, tipo: 'Temperatura', unidade_medida: '°C', fator: '1.000000', ganho: '0.000000', status: 'Ativo' },
-  { codigo: 'UMID-01', nome: 'Umidade relativa do ar', id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', estacao_id: estacoes[0].id, tipo: 'Umidade Relativa', unidade_medida: '%', fator: '1.000000', ganho: '0.000000', status: 'Inativo' },
-  { codigo: 'PM25-01', nome: 'Qualidade do ar', id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', estacao_id: estacoes[1].id, tipo: 'PM2.5', unidade_medida: 'µg/m³', fator: '1.025000', ganho: '-0.500000', status: 'Ativo' },
+  { codigo: 'TEMP-01', nome: 'Temperatura do ar', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', estacao_id: estacoes[0].id, tipo: 'Temperatura', unidade_medida: '°C', unidade_leitura: null, fator_conversao: '1.000000', offset: '0.000000', status: 'Ativo' },
+  { codigo: 'UMID-01', nome: 'Umidade relativa do ar', id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', estacao_id: estacoes[0].id, tipo: 'Umidade Relativa', unidade_medida: '%', unidade_leitura: null, fator_conversao: '1.000000', offset: '0.000000', status: 'Inativo' },
+  { codigo: 'PM25-01', nome: 'Qualidade do ar', id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', estacao_id: estacoes[1].id, tipo: 'PM2.5', unidade_medida: 'µg/m³', unidade_leitura: null, fator_conversao: '1.025000', offset: '-0.500000', status: 'Ativo' },
 ];
 
 // US-24: alarmes no formato de GET /alertas/alarmes (OpenAPI do alertas-notificacoes).
@@ -73,6 +84,18 @@ const alarmes: Alarme[] = [
   }),
 ];
 
+// Códigos que as estações já mandaram. O mock devolve só os que ainda não têm sensor
+// (de qualquer status, comparação exata), como o backend.
+const recebidos: Record<string, Array<{ codigo: string; total: number; ultimo_valor: number | null; ultima_leitura_em: string }>> = {
+  [estacoes[0].id]: [
+    { codigo: 'PM25', total: 12, ultimo_valor: 12, ultima_leitura_em: minutosAtras(3) },
+    { codigo: 'PM10', total: 12, ultimo_valor: 20, ultima_leitura_em: minutosAtras(3) },
+    { codigo: 'DIR-01', total: 4, ultimo_valor: 270, ultima_leitura_em: minutosAtras(25) },
+    { codigo: 'TEMP-01', total: 12, ultimo_valor: 24.9, ultima_leitura_em: minutosAtras(3) },
+  ],
+  [estacoes[1].id]: [{ codigo: 'CHUVA-01', total: 2, ultimo_valor: 0.4, ultima_leitura_em: minutosAtras(90) }],
+};
+
 function filtrarAlarmes(params: Record<string, string | undefined> = {}): Alarme[] {
   return alarmes
     .filter((a) => !params.de || a.lido_em >= new Date(params.de).toISOString())
@@ -101,33 +124,123 @@ export const mockApiAdapter: AxiosAdapter = async (config) => {
     throw new AxiosError(message, AxiosError.ERR_BAD_REQUEST, config, undefined, response({ message }, status));
   };
   // Mesmo envelope retornado pelo backend.
+
+  const encontrarEstacao = (identificador: string) =>
+    estacoes.find(
+      (item) =>
+        item.id === identificador ||
+        item.codigo.toUpperCase() === identificador.toUpperCase(),
+    );
+
+  // Rotas de análise de dados.
+  const seriesRoute = url.match(
+    /^\/analise\/estacoes\/([^/]+)\/series$/,
+  );
+
+  if (method === 'get' && seriesRoute) {
+    const estacaoId = seriesRoute[1];
+
+    if (!encontrarEstacao(estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
+
+    const params = config.params as
+      | { grandeza?: string; periodo?: string }
+      | undefined;
+
+    const grandeza = params?.grandeza;
+    const periodo = params?.periodo;
+
+    if (!grandeza) {
+      return fail(400, 'A grandeza é obrigatória.');
+    }
+
+    const periodosValidos: PeriodoAnalise[] = ['24h', '7d', '30d'];
+
+    if (!periodo || !periodosValidos.includes(periodo as PeriodoAnalise)) {
+      return fail(400, 'Período inválido.');
+    }
+
+    return response(
+      criarMockSeries(estacaoId, grandeza, periodo as PeriodoAnalise),
+    );
+  }
+
+  const ultimasLeiturasRoute = url.match(
+    /^\/analise\/estacoes\/([^/]+)\/ultimas-leituras$/,
+  );
+
+  if (method === 'get' && ultimasLeiturasRoute) {
+    const estacaoId = ultimasLeiturasRoute[1];
+
+    if (!encontrarEstacao(estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
+
+    return response(criarMockUltimasLeituras(estacaoId));
+  }
+
+  const iqarEstacaoRoute = url.match(
+    /^\/analise\/estacoes\/([^/]+)\/iqar$/,
+  );
+
+  if (method === 'get' && iqarEstacaoRoute) {
+    const estacaoId = iqarEstacaoRoute[1];
+
+    if (!encontrarEstacao(estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
+
+    return response({ ...mockIqar, estacaoId });
+  }
+
+  if (method === 'get' && url === '/analise/iqar') {
+    const params = config.params as { estacaoId?: string } | undefined;
+    if (params?.estacaoId && !encontrarEstacao(params.estacaoId)) {
+      return fail(404, 'Estação não encontrada.');
+    }
+    return response(mockIqar);
+  }
+
   if (method === 'get' && url === '/estacoes/status') return response({
     resumo: { total: 3, ativas: 1, com_falha: 1, inativas: 1 },
     estacoes,
   });
-  const collection = url.match(/^\/estacoes\/([^/]+)\/sensores$/);
+  if (method === 'get' && url === '/estacoes/tipos-sensor') return response(catalogo);
+  // Os caminhos reais do gestao-estacoes: /estacoes/estacoes/:id/sensores e /estacoes/sensores/:id/status.
+  const detectadosRoute = url.match(/^\/estacoes\/estacoes\/([^/]+)\/sensores\/detectados$/);
+  if (method === 'get' && detectadosRoute) {
+    const estacaoId = detectadosRoute[1];
+    if (!estacoes.some((item) => item.id === estacaoId)) return fail(404, 'Estação não encontrada.');
+    const cadastrados = new Set(sensores.filter((item) => item.estacao_id === estacaoId).map((item) => item.codigo));
+    return response((recebidos[estacaoId] ?? []).filter((item) => !cadastrados.has(item.codigo)));
+  }
+  const collection = url.match(/^\/estacoes\/estacoes\/([^/]+)\/sensores$/);
   if (collection) {
     const estacaoId = collection[1];
     if (!estacoes.some((item) => item.id === estacaoId)) return fail(404, 'Estação não encontrada.');
     if (method === 'get') return response(sensores.filter((item) => item.estacao_id === estacaoId));
     if (method === 'post') {
       const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
-      if (!body || !Object.hasOwn(unidades, body.tipo)) return fail(400, 'Tipo inválido.');
+      const grandeza = catalogo.find((item) => item.nome === body?.tipo);
+      if (!grandeza) return fail(400, `Tipo de sensor "${String(body?.tipo)}" não existe no catálogo de grandezas.`);
       const codigo = typeof body.codigo === 'string' ? body.codigo.trim() : '';
       const nome = typeof body.nome === 'string' ? body.nome.trim() : '';
       if (!codigo || codigo.length > 30 || !nome || nome.length > 100) return fail(400, 'Código e nome são obrigatórios (máximo de 30 e 100 caracteres).');
-      if (sensores.some((item) => item.estacao_id === estacaoId && item.codigo === codigo)) return fail(409, 'Código já cadastrado nesta estação.');
-      const tipo = body.tipo as MockSensor['tipo'];
-      const fator = body.fator ?? 1;
-      const ganho = body.ganho ?? 0;
-      if (![fator, ganho].every((value) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 999999.999999)) return fail(400, 'Calibração inválida.');
-      if (sensores.some((item) => item.estacao_id === estacaoId && item.tipo === tipo)) return fail(409, 'Esta estação já possui um sensor deste tipo.');
-      const sensor: MockSensor = { codigo, nome, id: crypto.randomUUID(), estacao_id: estacaoId, tipo, unidade_medida: unidades[tipo], fator: fator.toFixed(6), ganho: ganho.toFixed(6), status: 'Ativo' };
+      const unidadeLeitura = typeof body.unidade_leitura === 'string' ? body.unidade_leitura.trim() : '';
+      if (unidadeLeitura.length > 20) return fail(400, 'A unidade da leitura aceita até 20 caracteres.');
+      const tipo = grandeza.nome;
+      if (sensores.some((item) => item.estacao_id === estacaoId && item.tipo === tipo)) return fail(409, `Esta estação já possui um sensor de ${tipo} cadastrado`);
+      if (sensores.some((item) => item.estacao_id === estacaoId && item.codigo === codigo)) return fail(409, `Já existe um sensor com o código "${codigo}" nesta estação.`);
+      const fatorConversao = body.fator_conversao ?? 1;
+      const offset = body.offset ?? 0;
+      if (![fatorConversao, offset].every((value) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 999999.999999)) return fail(400, 'Calibração inválida.');
+      const sensor: MockSensor = { codigo, nome, id: crypto.randomUUID(), estacao_id: estacaoId, tipo, unidade_medida: grandeza.unidade, unidade_leitura: unidadeLeitura || null, fator_conversao: fatorConversao.toFixed(6), offset: offset.toFixed(6), status: 'Ativo' };
       sensores.push(sensor);
       return response(sensor, 201);
     }
   }
-  const statusRoute = url.match(/^\/sensores\/([^/]+)\/status$/);
+  const statusRoute = url.match(/^\/estacoes\/sensores\/([^/]+)\/status$/);
   if (method === 'patch' && statusRoute) {
     const sensor = sensores.find((item) => item.id === statusRoute[1]);
     if (!sensor) return fail(404, 'Sensor não encontrado.');

@@ -1,0 +1,20 @@
+{
+  "name": "qa-e2e-frontend-4semestre",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suíte de testes E2E de QA para o Pulso Urbano (US-35)",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^24.0.0",
+    "dotenv": "^16.4.7",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "frontend-4semestre": "file:.."
+  }
+}

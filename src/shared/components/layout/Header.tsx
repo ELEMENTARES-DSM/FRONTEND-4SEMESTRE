@@ -15,6 +15,10 @@ export function Header({ onMenuClick }: HeaderProps) {
       : pathname.startsWith(n.path),
   );
 
+  const pageLabel =
+    current?.label ??
+    (pathname.startsWith("/platform/dashboard") ? "Dashboard" : "—");
+
   return (
     <header className="flex items-center gap-3 px-4 h-14 shrink-0 bg-base-200 border-b border-base-300">
       {/* Mobile menu */}
@@ -42,35 +46,13 @@ export function Header({ onMenuClick }: HeaderProps) {
         <span className="text-xs text-muted">Pulso Urbano</span>
         <span className="text-line">/</span>
         <span className="text-sm font-medium text-base-content">
-          {current?.label ?? "—"}
+          {pageLabel}
         </span>
       </div>
 
       <div className="flex-1" />
 
       <IndicadorAlarmes />
-
-      {/* Period picker */}
-      <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer hover:opacity-90 bg-base-300 text-base-content border border-line">
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          className="text-muted"
-          strokeWidth="1.3"
-        >
-          <rect x="1" y="2" width="10" height="9" rx="1" />
-          <path d="M1 5h10M4 1v2M8 1v2" strokeLinecap="round" />
-        </svg>
-        01/05 – 31/05
-      </div>
-
-      {/* Region */}
-      <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer hover:opacity-90 bg-base-300 text-base-content border border-line">
-        Todas as regiões ▾
-      </div>
     </header>
   );
 }
